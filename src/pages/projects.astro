@@ -1,0 +1,63 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Projects"
+  description="Highlights from John Clow's open-source hardware design work."
+>
+  <section class="container mx-auto px-4 py-16 md:py-24">
+    <div class="max-w-4xl space-y-6">
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        Projects
+      </p>
+      <h1 class="text-4xl font-bold tracking-tight md:text-5xl">
+        Shaping accessible hardware design tooling
+      </h1>
+      <p class="text-lg text-muted-foreground">
+        John Clow leads projects that lower the barrier to experimenting with digital hardware,
+        pairing research rigor with developer-friendly execution.
+      </p>
+    </div>
+
+    <article class="mt-12 space-y-8 rounded-xl border bg-card/60 p-8 shadow-sm backdrop-blur">
+      <header class="space-y-2">
+        <h2 class="text-2xl font-semibold tracking-tight">
+          1. PyRTL (UCSBarchlab/PyRTL) - Primary Contribution
+        </h2>
+      </header>
+
+      <div class="space-y-4 text-muted-foreground">
+        <p>
+          John Clow served as the lead developer of PyRTL during his junior and senior years at UCSB,
+          where he worked in the Architecture Lab researching and developing improved ways for describing flow graphs for hardware John Clow.
+        </p>
+        <p>
+          PyRTL is a Python-based hardware description language that provides classes for register-transfer level design, simulation, tracing, and testing suitable for teaching and research, with goals emphasizing simplicity, usability, clarity, and extensibility pyrtl. John Clow is credited as the author on the PyPI package pyrtl.
+        </p>
+      </div>
+
+      <section class="space-y-3">
+        <h3 class="text-lg font-semibold tracking-tight">His work included:</h3>
+        <ul class="list-disc space-y-2 pl-5 text-muted-foreground">
+          <li>Co-authoring the foundational paper "A pythonic approach for rapid hardware prototyping and instrumentation" presented at the 2017 Field Programmable Logic and Applications (FPL) conference A pythonic approach for rapid hardware prototyping and instrumentation</li>
+          <li>Developing the core framework that allows hardware designers to specify digital hardware using Python rather than traditional HDLs like Verilog or VHDL</li>
+          <li>Creating simulation, synthesis, and optimization tools within the PyRTL ecosystem</li>
+          <li>Building educational examples and documentation to make hardware design more accessible</li>
+        </ul>
+      </section>
+
+      <p class="text-muted-foreground">
+        The repository has gained significant traction with 277 stars and 83 forks, providing features like elaboration-through-execution, terminal-based waveform visualization, and the ability to export designs to Verilog
+        <a
+          class="text-primary underline"
+          href="https://github.com/UCSBarchlab/PyRTL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub - UCSBarchlab/PyRTL: A collection of classes providing simple hardware specification, simulation, tracing, and testing suitable for teaching and research. Simplicity, usability, clarity, and extensibility are the overarching goals, rather than performance or optimization..
+        </a>
+      </p>
+    </article>
+  </section>
+</BaseLayout>
