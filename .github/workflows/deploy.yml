@@ -22,6 +22,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
@@ -38,6 +42,8 @@ jobs:
 
       - name: Build site
         run: pnpm build
+        env:
+          BASE: ${{ steps.pages.outputs.base_path }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
