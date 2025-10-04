@@ -1,0 +1,88 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="About Me"
+  description="San Francisco technologist and maker blending AI, art, and community."
+>
+  <section class="container mx-auto px-4 py-16 md:py-24">
+    <div class="max-w-3xl space-y-6">
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        About
+      </p>
+      <h1 class="text-4xl font-bold tracking-tight md:text-5xl">
+        Hi, I'm Gamrix &mdash; a San Francisco-based software enginner and maker.
+      </h1>
+      <p class="text-lg text-muted-foreground">
+        I build AI systems, craft interactive installations, and help communities create inclusive experiences where technology, art, and people collide.
+      </p>
+    </div>
+
+    <div class="mt-12 grid gap-10 lg:grid-cols-[2fr_1fr]">
+      <div class="space-y-12">
+        <section class="space-y-4">
+          <h2 class="text-2xl font-semibold tracking-tight">Where I focus</h2>
+          <p class="text-muted-foreground">
+            My career has taken me through major tech companies and early-stage projects where applied machine learning makes a tangible difference. I love translating theory into resilient systems and tuning models that stay accountable to the people who depend on them.
+          </p>
+          <ul class="list-disc space-y-2 pl-6 text-muted-foreground">
+            <li>Designing and training AI models with an eye toward prompt engineering, evaluation, and optimization.</li>
+          </ul>
+        </section>
+
+        <section class="space-y-4">
+          <h2 class="text-2xl font-semibold tracking-tight">Creative technology</h2>
+          <p class="text-muted-foreground">
+            I'm a hands-on maker who pairs software with fabrication.
+             Whether it's laser cutting, digital fabrication, or smart lighting,
+              I enjoy prototyping ideas that invite people to play and explore.
+          </p>
+          <p class="text-muted-foreground">
+            You'll often find me at local maker spaces in San Francisco,
+            iterating on pieces that blend code-generated patterns with tactile materials.
+          </p>
+        </section>
+
+        <section class="space-y-4">
+          <h2 class="text-2xl font-semibold tracking-tight">Community &amp; culture</h2>
+          <p class="text-muted-foreground">
+            Participatory communities are where I feel most at home. With camps like
+            Future Turtles and Comfort &amp; Joy at Burning Man, I help design everything
+             from technical infrastructure to consent-forward experiences.
+          </p>
+          <p class="text-muted-foreground">
+            Collaboration, care, and inclusive spaces are the throughline in every
+             project&mdash;it's how we sustain the magic long after the dust settles.
+          </p>
+        </section>
+
+        <section class="space-y-4">
+          <h2 class="text-2xl font-semibold tracking-tight">Adventure mindset</h2>
+          <p class="text-muted-foreground">
+            Travel fuels my curiosity. I've chased powder from Aspen to the New Zealand, wandered
+             across Europe, Asia, and the Americas, and brought those perspectives back into the
+              teams and communities I support.
+          </p>
+          <p class="text-muted-foreground">
+            The world is wide, and every trip reminds me to design technology that respects the contexts it touches.
+          </p>
+        </section>
+      </div>
+
+      <aside class="space-y-6">
+        <div class="rounded-lg border bg-card p-6 shadow-sm">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Currently exploring
+          </h3>
+          <ul class="mt-4 space-y-3 text-sm text-muted-foreground">
+            <li>Advancing human-centered AI tooling that stays transparent and accountable.</li>
+            <li>Generative art workflows that connect fabrication with live data.</li>
+            <li>Ways to scale consent-based practices across collaborative communities.</li>
+            <li>New mountains, new maker residencies, and new stories to bring home.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </section>
+</BaseLayout>
