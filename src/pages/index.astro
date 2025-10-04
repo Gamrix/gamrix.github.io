@@ -4,41 +4,22 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 ---
 
 <BaseLayout
-  title="Astro shadcn/ui template"
-  description="This template helps you build apps with Astro, Tailwind CSS, and shadcn/ui."
+  title="John Clow | Welcome"
+  description="Technologist and creative maker in San Francisco."
 >
-  <section
-    class="container px-4 mx-auto grid items-center gap-6 pt-6 pb-8 md:py-10"
-  >
-    <div class="flex max-w-[980px] flex-col items-start gap-2">
-      <h1
-        class="text-3xl font-extrabold leading-tight tracking-tighter md:text-4xl"
-      >
-        Astro shadcn/ui template <br class="hidden sm:inline" />
-        built with Radix UI and Tailwind CSS.
+  <section class="container mx-auto grid gap-10 px-4 py-16 md:grid-cols-[2fr_1fr] md:items-center md:py-24">
+    <div class="space-y-6">
+      <h1 class="text-4xl font-bold leading-tight tracking-tight md:text-6xl">
+        Hi, I'm John Clow
       </h1>
-      <p class="max-w-[700px] text-lg text-muted-foreground">
-        Accessible and customizable components you can copy and paste into your
-        apps. Free. Open Source.
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        Welcome to  my repository of small projects.
       </p>
-    </div>
-    <div class="flex gap-4">
-      <a
-        href="https://ui.shadcn.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        class={buttonVariants()}
-      >
-        Documentation
-      </a>
-      <a
-        href="https://github.com/area44/astro-shadcn-ui-template"
-        target="_blank"
-        rel="noopener noreferrer"
-        class={buttonVariants({ variant: "outline" })}
-      >
-        GitHub
-      </a>
+      <div class="flex flex-wrap gap-3">
+        <a href="/about" class={buttonVariants({ size: "lg" })}>
+          Get to know me
+        </a>
+      </div>
     </div>
   </section>
 </BaseLayout>

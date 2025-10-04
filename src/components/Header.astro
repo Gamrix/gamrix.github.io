@@ -6,23 +6,21 @@ import { buttonVariants } from "@/components/ui/button";
 <header
   class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60"
 >
-  <div class="container px-4 mx-auto flex h-16 items-center justify-between">
+  <div class="container mx-auto flex h-16 items-center justify-between px-4">
     <a
       href="/"
       class="flex items-center gap-2 text-lg font-semibold"
-      aria-label="Homepage"
+      aria-label="John Clow homepage"
     >
-      <span>Home</span>
+      <span>John Clow</span>
     </a>
 
     <nav class="flex items-center gap-2">
-      <a
-        href="https://github.com/area44/astro-shadcn-ui-template"
-        target="_blank"
-        rel="noopener noreferrer"
-        class={buttonVariants({ variant: "ghost" })}
-      >
-        GitHub
+      <a href="/about" class={buttonVariants({ variant: "ghost" })}>
+        About
+      </a>
+      <a href="/#projects" class={buttonVariants({ variant: "ghost" })}>
+        Projects
       </a>
       <ThemeToggle />
     </nav>
