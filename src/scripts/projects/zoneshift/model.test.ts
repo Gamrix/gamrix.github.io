@@ -7,6 +7,7 @@ import {
   CorePlanSchema,
   interpolateDailyWakeTimes,
   makeDefaultShiftAnchor,
+  type CorePlan,
 } from "./model";
 
 const basePlan = () =>
@@ -151,6 +152,29 @@ describe("computePlan", () => {
     expect(firstDay.sleepStartLocal).toBe("16:30");
     expect(lastDay.sleepStartLocal).toBe("01:30");
     expect(lastDay.wakeTimeLocal).toBe("09:30");
+    expect(firstDay.anchors).toBeDefined();
+    expect(Array.isArray(firstDay.anchors)).toBe(true);
+    const anchoredPlan = {
+      ...plan,
+      anchors: [
+        {
+          id: "user-anchor",
+          kind: "wake" as const,
+          instant: "2024-10-19T01:00:00Z",
+          zone: plan.params.targetZone,
+          note: "Test anchor",
+        },
+      ],
+    } satisfies CorePlan;
+    const anchoredComputed = computePlan(anchoredPlan);
+    const anchorIds = anchoredComputed.days.flatMap((day) =>
+      day.anchors.map((anchor) => anchor.id),
+    );
+    const editableAnchorIds = anchoredComputed.days.flatMap((day) =>
+      day.anchors.filter((anchor) => anchor.editable).map((anchor) => anchor.id),
+    );
+    expect(anchorIds).toContain("user-anchor");
+    expect(editableAnchorIds).toContain("user-anchor");
 
     expect(computed.meta.direction).toBe("later");
     expect(computed.meta.perDayShifts[0]).toBe(0);

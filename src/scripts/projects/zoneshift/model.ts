@@ -68,6 +68,7 @@ export interface DayComputed {
   brightStartLocal: string;
   brightEndLocal: string;
   wakeTimeLocal: string;
+  anchors: DayAnchorInfo[];
 }
 
 export interface ComputedView {
@@ -84,6 +85,14 @@ export interface ComputedView {
 export interface InterpPolicy {
   maxLaterPerDay: number;
   maxEarlierPerDay: number;
+}
+
+export interface DayAnchorInfo {
+  id: string;
+  kind: AnchorPoint["kind"];
+  note?: string;
+  instant: string;
+  editable: boolean;
 }
 
 interface AnchorResolved {
@@ -320,7 +329,7 @@ export function computeBrightWindow(
   let start = wakePlusThirty;
   let end = avoidLightStart;
 
-  const zoneId = wake.timeZoneId ?? wake.timeZone.id;
+  const zoneId = wake.timeZoneId;
   const dayStart = Temporal.ZonedDateTime.from({
     timeZone: zoneId,
     year: wake.year,
@@ -457,6 +466,29 @@ export function computePlan(core: CorePlan): ComputedView {
     })
     .filter((value): value is AnchorResolved => value !== null);
 
+  const anchorMap = new Map<string, DayAnchorInfo[]>();
+  for (const item of resolvedAnchors) {
+    const rawAnchorMoment =
+      item.anchor.kind === "wake" ? item.wake : item.wake.subtract(sleepDuration);
+    const dayKey = rawAnchorMoment.toPlainDate().toString();
+    const anchorInstant = rawAnchorMoment.toInstant().toString();
+    const isSystemAnchor =
+      item.anchor.id === "default-shift-anchor" || item.anchor.id.startsWith("__");
+    const info: DayAnchorInfo = {
+      id: item.anchor.id,
+      kind: item.anchor.kind,
+      note: item.anchor.note,
+      instant: anchorInstant,
+      editable: !isSystemAnchor,
+    };
+    const existing = anchorMap.get(dayKey);
+    if (existing) {
+      existing.push(info);
+    } else {
+      anchorMap.set(dayKey, [info]);
+    }
+  }
+
   const maxWakeDate = resolvedAnchors.length
     ? resolvedAnchors
         .map((entry) => entry.wake.toPlainDate())
@@ -502,6 +534,7 @@ export function computePlan(core: CorePlan): ComputedView {
       brightStartLocal: bright.start ?? DEFAULT_BRIGHT_FALLBACK,
       brightEndLocal: bright.end ?? DEFAULT_BRIGHT_FALLBACK,
       wakeTimeLocal: formatTime(wake),
+      anchors: anchorMap.get(key)?.map((anchor) => ({ ...anchor })) ?? [],
     });
 
     previousSleepStart = sleepStart;
