@@ -107,24 +107,14 @@ const clamp = (value: number, lower: number, upper: number) =>
 
 const hoursToMinutes = (hours: number) => Math.round(hours * MINUTE);
 
-const minutesDuration = (minutes: number) => Temporal.Duration.from({ minutes });
-
 const toPlainDate = (value: string | Temporal.PlainDate) =>
   typeof value === "string" ? Temporal.PlainDate.from(value) : value;
 
 const formatTime = (zdt: Temporal.ZonedDateTime) =>
   zdt.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
-const addDays = (zdt: Temporal.ZonedDateTime, days: number) =>
-  days === 0 ? zdt : zdt.add({ days });
-
 const addMinutes = (zdt: Temporal.ZonedDateTime, minutes: number) =>
-  minutes === 0 ? zdt : zdt.add(minutesDuration(minutes));
-
-const getPolicy = (params: CoreParams): InterpPolicy => ({
-  maxLaterPerDay: params.maxShiftLaterPerDayHours,
-  maxEarlierPerDay: params.maxShiftEarlierPerDayHours,
-});
+  minutes === 0 ? zdt : zdt.add({ minutes });
 
 const computeZoneDeltaHours = (core: CorePlan, startInstant: Temporal.Instant) => {
   const targetOffset = startInstant.toZonedDateTimeISO(core.params.targetZone).offsetNanoseconds;
@@ -137,7 +127,7 @@ const normalizeShift = (
   params: CoreParams,
   totalDeltaHours: number,
 ): ShiftStrategy => {
-  const policy = getPolicy(params);
+  const { maxShiftLaterPerDayHours, maxShiftEarlierPerDayHours } = params;
   const baseShift = -totalDeltaHours;
 
   const laterShift = baseShift >= 0 ? baseShift : baseShift + 24;
@@ -146,8 +136,8 @@ const normalizeShift = (
   const computeDaysNeeded = (shift: number, maxPerDay: number) =>
     shift === 0 ? 0 : Math.max(1, Math.ceil(Math.abs(shift) / maxPerDay));
 
-  const laterDays = computeDaysNeeded(laterShift, policy.maxLaterPerDay);
-  const earlierDays = computeDaysNeeded(earlierShift, policy.maxEarlierPerDay);
+  const laterDays = computeDaysNeeded(laterShift, maxShiftLaterPerDayHours);
+  const earlierDays = computeDaysNeeded(earlierShift, maxShiftEarlierPerDayHours);
 
   if (laterDays <= earlierDays) {
     return {
@@ -175,7 +165,7 @@ const resolveAnchorWake = (
     if (anchor.kind === "wake") {
       return inTarget;
     }
-    return inTarget.add(minutesDuration(sleepDurationMinutes));
+    return inTarget.add({ minutes: sleepDurationMinutes });
   } catch (error) {
     console.error("Failed to resolve anchor", anchor, error);
     return null;
@@ -311,7 +301,7 @@ export function interpolateDailyWakeTimes(
   result.push(current);
 
   for (let i = 1; i < intervals; i += 1) {
-    current = current.add({ days: 1 }).add(minutesDuration(stepMinutes));
+    current = current.add({ days: 1, minutes: stepMinutes });
     result.push(current);
   }
 
@@ -408,13 +398,15 @@ export function makeDefaultShiftAnchor(core: CorePlan): AnchorPoint {
   const targetZone = core.params.targetZone;
   const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
   const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
-  const sleepDuration = minutesDuration(hoursToMinutes(core.params.sleepHours));
+  const sleepDurationMinutes = hoursToMinutes(core.params.sleepHours);
+  const sleepDuration = Temporal.Duration.from({ minutes: sleepDurationMinutes });
   const startInstant = startSleep.toInstant();
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
 
+  const shiftedStartSleep = startSleep.add({ days: strategy.daysNeeded });
   const alignedSleepStart = addMinutes(
-    addDays(startSleep, strategy.daysNeeded),
+    shiftedStartSleep,
     hoursToMinutes(strategy.shiftAmountHours),
   );
   const alignedWake = alignedSleepStart.add(sleepDuration);
@@ -438,7 +430,7 @@ export function projectInstant(iso: string, zone: ZoneId) {
 export function computePlan(core: CorePlan): ComputedView {
   const targetZone = core.params.targetZone;
   const sleepDurationMinutes = hoursToMinutes(core.params.sleepHours);
-  const sleepDuration = minutesDuration(sleepDurationMinutes);
+  const sleepDuration = Temporal.Duration.from({ minutes: sleepDurationMinutes });
   const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
   const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
   const initialWake = startSleep.add(sleepDuration);
@@ -474,7 +466,10 @@ export function computePlan(core: CorePlan): ComputedView {
     : initialWake.toPlainDate();
   const dateRange = enumerateDates(startSleep.toPlainDate(), maxWakeDate);
 
-  const wakeSchedule = computeWakeSchedule(resolvedAnchors, dateRange, getPolicy(core.params));
+  const wakeSchedule = computeWakeSchedule(resolvedAnchors, dateRange, {
+    maxLaterPerDay: core.params.maxShiftLaterPerDayHours,
+    maxEarlierPerDay: core.params.maxShiftEarlierPerDayHours,
+  });
 
   const days: DayComputed[] = [];
   const perDayShifts: number[] = [];
