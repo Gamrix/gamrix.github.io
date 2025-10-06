@@ -1,6 +1,4 @@
 import { Temporal } from "@js-temporal/polyfill";
-
-import { Button } from "@/components/ui/button";
 import type { ComputedView } from "@/scripts/projects/zoneshift/model";
 
 const WEEKDAY = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -74,26 +72,30 @@ export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: Schedul
                           .toZonedDateTimeISO(displayZoneId)
                           .toPlainTime()
                           .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+                        const label = `${anchorKindLabel[anchor.kind]} @ ${anchorTime}`;
+                        const badgeClass =
+                          "inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+
+                        const anchorBadge =
+                          anchor.editable && onEditAnchor ? (
+                            <button
+                              type="button"
+                              onClick={() => onEditAnchor(anchor.id)}
+                              className={`${badgeClass} hover:bg-primary/20`}
+                            >
+                              {label}
+                            </button>
+                          ) : (
+                            <span className={badgeClass}>{label}</span>
+                          );
+
                         return (
                           <div
                             key={anchor.id}
                             className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
                           >
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">
-                              {anchorKindLabel[anchor.kind]} @ {anchorTime}
-                            </span>
+                            {anchorBadge}
                             {anchor.note ? <span>{anchor.note}</span> : null}
-                            {anchor.editable && onEditAnchor ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-auto px-2 py-1 text-[11px]"
-                                onClick={() => onEditAnchor(anchor.id)}
-                              >
-                                Edit anchor
-                              </Button>
-                            ) : null}
                           </div>
                         );
                       })}

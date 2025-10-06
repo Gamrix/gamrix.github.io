@@ -57,8 +57,8 @@ describe("ScheduleTable", () => {
       />,
     );
 
-    const editButton = await screen.findByRole("button", { name: /Edit anchor/i });
-    await user.click(editButton);
+    const anchorButtons = await screen.findAllByRole("button", { name: /Wake anchor/i });
+    await user.click(anchorButtons[0]);
 
     expect(handleEdit).toHaveBeenCalledTimes(1);
   });

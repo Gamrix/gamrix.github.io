@@ -19,7 +19,7 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    const editButtons = await screen.findAllByRole("button", { name: /Edit anchor/i });
+    const editButtons = await screen.findAllByRole("button", { name: /Wake anchor/i });
     await user.click(editButtons[0]);
 
     const timeInput = await screen.findByLabelText(/Anchor time/i);

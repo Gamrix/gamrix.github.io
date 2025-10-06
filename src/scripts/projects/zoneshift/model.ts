@@ -106,8 +106,6 @@ interface ShiftStrategy {
   daysNeeded: number;
 }
 
-const DEFAULT_BRIGHT_FALLBACK = "--:--";
-
 const MINUTE = 60;
 const NANOS_PER_HOUR = MINUTE * MINUTE * 1_000_000_000;
 
@@ -321,13 +319,9 @@ export function interpolateDailyWakeTimes(
 export function computeBrightWindow(
   wake: Temporal.ZonedDateTime,
   sleepStart: Temporal.ZonedDateTime,
-): { start: string; end: string } {
-  const wakePlusThirty = wake.add({ minutes: 30 });
-  const wakePlusThreeHours = wake.add({ hours: 3 });
-  const avoidLightStart = sleepStart.subtract({ hours: 3 });
-
-  let start = wakePlusThirty;
-  let end = avoidLightStart;
+): { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime } {
+  const brightStart = wake;
+  const brightEnd = wake.add({ hours: 5 });
 
   const zoneId = wake.timeZoneId;
   const dayStart = Temporal.ZonedDateTime.from({
@@ -344,20 +338,22 @@ export function computeBrightWindow(
   });
   const dayEnd = dayStart.add({ days: 1 });
 
-  if (Temporal.Instant.compare(start.toInstant(), dayStart.toInstant()) < 0) {
-    start = dayStart;
+  let clampedStart = brightStart;
+  let clampedEnd = brightEnd;
+
+  if (Temporal.Instant.compare(clampedStart.toInstant(), dayStart.toInstant()) < 0) {
+    clampedStart = dayStart;
   }
 
-  if (Temporal.Instant.compare(end.toInstant(), dayEnd.toInstant()) > 0) {
-    end = dayEnd;
+  if (Temporal.Instant.compare(clampedEnd.toInstant(), dayEnd.toInstant()) > 0) {
+    clampedEnd = dayEnd;
   }
 
-  if (Temporal.Instant.compare(end.toInstant(), start.toInstant()) <= 0) {
-    const fallback = formatTime(wakePlusThreeHours);
-    return { start: fallback, end: fallback };
+  if (Temporal.Instant.compare(clampedEnd.toInstant(), clampedStart.toInstant()) <= 0) {
+    return { start: clampedStart, end: clampedStart };
   }
 
-  return { start: formatTime(start), end: formatTime(end) };
+  return { start: clampedStart, end: clampedEnd };
 }
 
 const projectEvent = (
@@ -444,6 +440,7 @@ export function computePlan(core: CorePlan): ComputedView {
   const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
   const initialWake = startSleep.add(sleepDuration);
   const defaultAnchor = core.defaultShiftAnchor ?? makeDefaultShiftAnchor(core);
+  const displayZone = determineDisplayZone(core);
 
   const anchors: AnchorPoint[] = [
     defaultAnchor,
@@ -515,7 +512,11 @@ export function computePlan(core: CorePlan): ComputedView {
     }
 
     const sleepStart = wake.subtract(sleepDuration);
-    const bright = computeBrightWindow(wake, sleepStart);
+    const sleepStartDisplay = sleepStart.withTimeZone(displayZone);
+    const wakeDisplay = wake.withTimeZone(displayZone);
+    const brightWindow = computeBrightWindow(wake, sleepStart);
+    const brightStartDisplay = brightWindow.start.withTimeZone(displayZone);
+    const brightEndDisplay = brightWindow.end.withTimeZone(displayZone);
 
     let changeHours = 0;
     if (previousSleepStart) {
@@ -529,11 +530,11 @@ export function computePlan(core: CorePlan): ComputedView {
     days.push({
       dateTargetZone: key,
       changeThisDayHours: changeHours,
-      sleepStartLocal: formatTime(sleepStart),
-      sleepEndLocal: formatTime(wake),
-      brightStartLocal: bright.start ?? DEFAULT_BRIGHT_FALLBACK,
-      brightEndLocal: bright.end ?? DEFAULT_BRIGHT_FALLBACK,
-      wakeTimeLocal: formatTime(wake),
+      sleepStartLocal: formatTime(sleepStartDisplay),
+      sleepEndLocal: formatTime(wakeDisplay),
+      brightStartLocal: formatTime(brightStartDisplay),
+      brightEndLocal: formatTime(brightEndDisplay),
+      wakeTimeLocal: formatTime(wakeDisplay),
       anchors: anchorMap.get(key)?.map((anchor) => ({ ...anchor })) ?? [],
     });
 
@@ -547,8 +548,6 @@ export function computePlan(core: CorePlan): ComputedView {
   const startInstant = startSleep.toInstant();
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
-
-  const displayZone = determineDisplayZone(core);
 
   const projectedEvents = core.events
     .map((event) => projectEvent(event, displayZone))

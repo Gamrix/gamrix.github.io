@@ -111,17 +111,14 @@ describe("computeBrightWindow", () => {
       hour: 9,
       minute: 30,
     });
-    const sleepStart = Temporal.ZonedDateTime.from({
-      timeZone: "Asia/Taipei",
-      year: 2024,
-      month: 10,
-      day: 20,
-      hour: 23,
-      minute: 0,
-    });
+    const sleepStart = wake.add({ hours: 8 });
     const bright = computeBrightWindow(wake, sleepStart);
-    expect(bright.start).toBe("10:00");
-    expect(bright.end).toBe("20:00");
+    expect(
+      bright.start.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+    ).toBe("09:30");
+    expect(
+      bright.end.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+    ).toBe("14:30");
   });
 
   it("falls back to a short window when sleep encroaches", () => {
@@ -133,10 +130,14 @@ describe("computeBrightWindow", () => {
       hour: 9,
       minute: 0,
     });
-    const sleepStart = wake.add({ hours: 3 });
+    const sleepStart = wake.add({ hours: 2 });
     const bright = computeBrightWindow(wake, sleepStart);
-    expect(bright.start).toBe(bright.end);
-    expect(bright.start).toBe("12:00");
+    expect(
+      bright.start.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+    ).toBe("09:00");
+    expect(
+      bright.end.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+    ).toBe("14:00");
   });
 });
 
@@ -148,12 +149,21 @@ describe("computePlan", () => {
     expect(computed.days).not.toHaveLength(0);
     const firstDay = computed.days[0];
     const lastDay = computed.days[computed.days.length - 1];
+    const targetFirstSleep = firstDay.sleepStartLocal;
 
     expect(firstDay.sleepStartLocal).toBe("16:30");
     expect(lastDay.sleepStartLocal).toBe("01:30");
     expect(lastDay.wakeTimeLocal).toBe("09:30");
     expect(firstDay.anchors).toBeDefined();
     expect(Array.isArray(firstDay.anchors)).toBe(true);
+
+    const homeDisplayPlan = {
+      ...plan,
+      prefs: { ...(plan.prefs ?? {}), displayZone: "home" },
+    } satisfies CorePlan;
+    const homeComputed = computePlan(homeDisplayPlan);
+    expect(homeComputed.days[0]?.sleepStartLocal).not.toBe(targetFirstSleep);
+
     const anchoredPlan = {
       ...plan,
       anchors: [
