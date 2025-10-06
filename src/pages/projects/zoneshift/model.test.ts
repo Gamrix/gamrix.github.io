@@ -16,8 +16,7 @@ const basePlan = () =>
     params: {
       homeZone: "America/Los_Angeles",
       targetZone: "Asia/Taipei",
-      startDateLocal: "2024-10-17",
-      startSleepLocalTime: "16:30",
+      startSleepUtc: "2024-10-17T08:30:00Z",
       sleepHours: 8,
       maxShiftLaterPerDayHours: 1.5,
       maxShiftEarlierPerDayHours: 1,
@@ -27,7 +26,7 @@ const basePlan = () =>
   });
 
 describe("CorePlanSchema", () => {
-  it("rejects invalid time strings", () => {
+  it("rejects invalid instants", () => {
     expect(() =>
       CorePlanSchema.parse({
         id: "plan",
@@ -35,8 +34,7 @@ describe("CorePlanSchema", () => {
         params: {
           homeZone: "America/Los_Angeles",
           targetZone: "Asia/Taipei",
-          startDateLocal: "2024-10-17",
-          startSleepLocalTime: "25:61",
+          startSleepUtc: "2024-10-17T25:61:00Z",
           sleepHours: 8,
           maxShiftLaterPerDayHours: 1.5,
           maxShiftEarlierPerDayHours: 1,
@@ -52,9 +50,12 @@ describe("makeDefaultShiftAnchor", () => {
   it("creates a wake anchor once the timezone delta has been absorbed", () => {
     const anchor = makeDefaultShiftAnchor(basePlan());
     expect(anchor.kind).toBe("wake");
-    expect(anchor.localDate).toBe("2024-10-24");
-    expect(anchor.localTime).toBe("09:30");
     expect(anchor.zone).toBe("Asia/Taipei");
+    const anchorZdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(anchor.zone);
+    expect(anchorZdt.toPlainDate().toString()).toBe("2024-10-24");
+    expect(anchorZdt.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })).toBe(
+      "09:30",
+    );
   });
 });
 
