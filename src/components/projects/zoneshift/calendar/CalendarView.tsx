@@ -138,9 +138,11 @@ export function CalendarView({
             </dl>
 
             <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Anchors</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Wake Times
+              </h3>
               {anchors.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No anchors scheduled.</p>
+                <p className="text-xs text-muted-foreground">No wake times scheduled.</p>
               ) : (
                 anchors.map((anchor) => (
                   <Button
@@ -153,7 +155,7 @@ export function CalendarView({
                     disabled={!anchor.editable}
                   >
                     <span className="font-medium text-foreground">
-                      {anchor.kind === "wake" ? "Wake" : "Sleep"} @ {formatTime(anchor.zoned)}
+                      {anchor.kind === "wake" ? "Wake time" : "Sleep time"} @ {formatTime(anchor.zoned)}
                     </span>
                     {anchor.note ? (
                       <span className="ml-2 truncate text-xs text-muted-foreground">{anchor.note}</span>

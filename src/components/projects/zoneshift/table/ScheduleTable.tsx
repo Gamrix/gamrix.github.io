@@ -30,8 +30,8 @@ interface ScheduleTableProps {
 }
 
 const anchorKindLabel = {
-  wake: "Wake anchor",
-  sleep: "Sleep anchor",
+  wake: "Wake time",
+  sleep: "Sleep time",
 } as const;
 
 export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: ScheduleTableProps) {

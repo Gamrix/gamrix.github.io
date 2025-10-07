@@ -44,7 +44,7 @@ describe("ScheduleTable", () => {
     ).toBeInTheDocument();
   });
 
-  it("calls the edit handler when an editable anchor is present", async () => {
+  it("calls the edit handler when an editable wake time is present", async () => {
     const computed = computePlan(sampleCorePlan);
     const handleEdit = vi.fn();
     const user = userEvent.setup();
@@ -57,7 +57,7 @@ describe("ScheduleTable", () => {
       />,
     );
 
-    const anchorButtons = await screen.findAllByRole("button", { name: /Wake anchor/i });
+    const anchorButtons = await screen.findAllByRole("button", { name: /Wake time/i });
     await user.click(anchorButtons[0]);
 
     expect(handleEdit).toHaveBeenCalledTimes(1);

@@ -64,6 +64,9 @@ export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }
     return null;
   }
 
+  const anchorTitle = anchor.kind === "wake" ? "Wake Time" : "Sleep Time";
+  const anchorLabel = anchor.kind === "wake" ? "wake time" : "sleep time";
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     try {
@@ -74,7 +77,7 @@ export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }
       });
       onClose();
     } catch (error) {
-      console.error("Failed to update anchor", error);
+      console.error(`Failed to update ${anchorLabel}`, error);
     }
   };
 
@@ -88,8 +91,10 @@ export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }
       <DialogContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Edit {anchor.kind} anchor</DialogTitle>
-            <DialogDescription>Anchors influence the interpolated wake schedule.</DialogDescription>
+            <DialogTitle>Edit {anchorTitle}</DialogTitle>
+            <DialogDescription>
+              {anchorTitle} entries influence the interpolated wake schedule.
+            </DialogDescription>
           </DialogHeader>
 
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -145,13 +150,13 @@ export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }
 
           <DialogFooter>
             <Button type="submit" size="sm">
-              Save anchor
+              Save {anchorLabel}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={removeAnchor}>
-              Remove anchor
+              Remove {anchorLabel}
             </Button>
           </DialogFooter>
         </form>

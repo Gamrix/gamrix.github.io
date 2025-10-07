@@ -48,7 +48,7 @@ const ProjectedEvents = ({
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Anchored Activities
+        Wake Time Activities
       </h3>
       <ul className="grid gap-3 md:grid-cols-2">
         {computed.projectedEvents.map((event) => (
@@ -84,6 +84,16 @@ function ZoneShiftDemoComponent() {
     () => planState.anchors.find((anchor) => anchor.id === activeAnchorId) ?? null,
     [planState.anchors, activeAnchorId],
   );
+  const activeAnchorTitle = activeAnchor
+    ? activeAnchor.kind === "wake"
+      ? "Wake Time"
+      : "Sleep Time"
+    : null;
+  const activeAnchorLabel = activeAnchor
+    ? activeAnchor.kind === "wake"
+      ? "wake time"
+      : "sleep time"
+    : null;
 
   useEffect(() => {
     if (!activeAnchor) {
@@ -148,7 +158,7 @@ function ZoneShiftDemoComponent() {
       }));
       setActiveAnchorId(null);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Unable to update anchor");
+      setFormError(error instanceof Error ? error.message : "Unable to update wake time");
     }
   };
 
@@ -251,13 +261,13 @@ function ZoneShiftDemoComponent() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Edit Anchor
+                Edit {activeAnchorTitle ?? "Wake Time"}
               </p>
               <h3 className="text-lg font-semibold text-foreground">
-                {activeAnchor.note ?? "Anchor"}
+                {activeAnchor.note ?? activeAnchorTitle ?? "Wake Time"}
               </h3>
               <p className="text-xs text-muted-foreground">
-                Adjust the {activeAnchor.kind} anchor by choosing a new local date and time in
+                Adjust the {activeAnchorLabel ?? "wake time"} by choosing a new local date and time in
                 {" "}
                 {activeAnchor.zone}.
               </p>
@@ -269,7 +279,7 @@ function ZoneShiftDemoComponent() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Anchor date
+              Local date
               <input
                 id="anchor-date"
                 name="anchor-date"
@@ -281,7 +291,7 @@ function ZoneShiftDemoComponent() {
               />
             </label>
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Anchor time
+              Local time
               <input
                 id="anchor-time"
                 name="anchor-time"
@@ -310,7 +320,7 @@ function ZoneShiftDemoComponent() {
 
           <div className="flex flex-wrap gap-3">
             <Button type="submit" size="sm">
-              Save anchor
+              Save {activeAnchorLabel ?? "wake time"}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={handleAnchorCancel}>
               Cancel

@@ -590,6 +590,7 @@ export function Timeline({
 
                   {visibleAnchors.map((anchor) => {
                     const minutes = clampMinutes(getMinutesSinceStartOfDay(anchor.zoned));
+                    const anchorKindLabel = anchor.kind === "wake" ? "Wake time" : "Sleep time";
                     return (
                       <button
                         key={anchor.id}
@@ -601,13 +602,13 @@ export function Timeline({
                         onPointerCancel={handlePointerUp}
                         className="absolute left-2 right-2 flex cursor-grab items-center gap-2 rounded-md bg-foreground/10 px-2 py-1 text-left text-[10px] text-foreground transition-colors hover:bg-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                         style={{ top: `${minutes * PIXELS_PER_MINUTE - 10}px` }}
-                        aria-label={`${anchor.kind === "wake" ? "Wake" : "Sleep"} anchor at ${anchor.zoned
+                        aria-label={`${anchorKindLabel} at ${anchor.zoned
                           .toPlainTime()
                           .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}`}
                       >
                         <span className="h-2 w-2 rounded-full bg-primary" />
                         <span>
-                          {anchor.kind === "wake" ? "Wake" : "Sleep"} @
+                          {anchorKindLabel} @
                           {" "}
                           {anchor.zoned
                             .toPlainTime()
@@ -635,14 +636,14 @@ export function Timeline({
             className="block w-full rounded px-2 py-1 text-left hover:bg-muted"
             onClick={() => handleAddAnchor("wake")}
           >
-            Add wake anchor
+            Add wake time
           </button>
           <button
             type="button"
             className="mt-1 block w-full rounded px-2 py-1 text-left hover:bg-muted"
             onClick={() => handleAddAnchor("sleep")}
           >
-            Add sleep anchor
+            Add sleep time
           </button>
           <button
             type="button"

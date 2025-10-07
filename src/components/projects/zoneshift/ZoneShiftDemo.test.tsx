@@ -16,7 +16,7 @@ describe("ZoneShiftDemo", () => {
     expect(screen.getByText("America/Los_Angeles")).toBeInTheDocument();
   });
 
-  it("allows updating anchor times via the editor", async () => {
+  it("allows updating wake times via the editor", async () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
@@ -24,15 +24,15 @@ describe("ZoneShiftDemo", () => {
     expect(viewGroup).not.toBeNull();
     await user.click(within(viewGroup as HTMLElement).getByRole("button", { name: "Schedule" }));
 
-    const editButtons = await screen.findAllByRole("button", { name: /Wake anchor/i });
+    const editButtons = await screen.findAllByRole("button", { name: /Wake time/i });
     await user.click(editButtons[0]);
 
-    const timeInput = await screen.findByLabelText(/Anchor time/i);
+    const timeInput = await screen.findByLabelText(/Local time/i);
     await user.clear(timeInput);
     await user.type(timeInput, "08:15");
 
-    await user.click(screen.getByRole("button", { name: /Save anchor/i }));
+    await user.click(screen.getByRole("button", { name: /Save wake time/i }));
 
-    expect(await screen.findByText(/Wake anchor @ 08:15/)).toBeInTheDocument();
+    expect(await screen.findByText(/Wake time @ 08:15/)).toBeInTheDocument();
   });
 });

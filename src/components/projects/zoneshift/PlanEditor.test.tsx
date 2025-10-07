@@ -57,23 +57,24 @@ describe("PlanEditor", () => {
     const eventCards = await screen.findAllByRole("button", { name: /Flight to Taipei/i });
     await user.click(eventCards[0]);
 
-    expect(await screen.findByText(/Edit event/i)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /Edit event/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText(/Edit event/i)).not.toBeInTheDocument();
   });
 
-  it("opens the anchor dialog from the schedule table", async () => {
+  it("opens the wake time dialog from the schedule table", async () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    const viewGroup = screen.getByRole("group", { name: /View mode/i });
+    const viewGroups = screen.getAllByRole("group", { name: /View mode/i });
+    const viewGroup = viewGroups[0];
     await user.click(within(viewGroup).getByRole("button", { name: "Schedule" }));
 
-    const anchorButton = await screen.findByRole("button", { name: /Wake anchor/i });
+    const anchorButton = await screen.findByRole("button", { name: /Wake time/i });
     await user.click(anchorButton);
 
-    expect(await screen.findByText(/Edit wake anchor/i)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /Edit Wake Time/i })).toBeInTheDocument();
   });
 
   it("updates plan parameters and reflects in the view", async () => {
@@ -88,7 +89,7 @@ describe("PlanEditor", () => {
     await user.type(sleepInput, "7.5");
     await user.click(screen.getByRole("button", { name: /Apply changes/i }));
 
-    const wakeSummary = await screen.findByText(/Kickoff sleep/i);
+    const wakeSummary = (await screen.findAllByText(/Kickoff sleep/i))[0];
     const valueNode = wakeSummary.parentElement?.querySelector("dd");
     expect(valueNode?.textContent).toContain("@ 16:30");
   });
