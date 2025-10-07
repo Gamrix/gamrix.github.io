@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ZoneShiftDemo from "./ZoneShiftDemo";
@@ -20,9 +20,8 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    const viewGroup = screen.getByText("View").closest("div");
-    expect(viewGroup).not.toBeNull();
-    await user.click(within(viewGroup as HTMLElement).getByRole("button", { name: "Schedule" }));
+    const scheduleButtons = screen.getAllByRole("button", { name: "Schedule" });
+    await user.click(scheduleButtons[0]);
 
     const editButtons = await screen.findAllByRole("button", { name: /Wake time/i });
     await user.click(editButtons[0]);

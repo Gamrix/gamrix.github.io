@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -60,6 +60,6 @@ describe("ScheduleTable", () => {
     const anchorButtons = await screen.findAllByRole("button", { name: /Wake time/i });
     await user.click(anchorButtons[0]);
 
-    expect(handleEdit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(handleEdit).toHaveBeenCalledTimes(1));
   });
 });
