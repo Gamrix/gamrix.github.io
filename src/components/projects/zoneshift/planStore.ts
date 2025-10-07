@@ -11,7 +11,7 @@ import {
 } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
-export type ViewMode = "timeline" | "table";
+export type ViewMode = "calendar" | "table";
 
 interface PlanStoreState {
   plan: CorePlan;
@@ -63,7 +63,7 @@ const normalizePlan = (plan: CorePlan): CorePlan => {
 
 let state: PlanStoreState = {
   plan: normalizePlan(loadPlan()),
-  viewMode: "timeline",
+  viewMode: "calendar",
   activeEventId: null,
   activeAnchorId: null,
 };
@@ -293,13 +293,13 @@ export const planActions = {
       plan: normalizePlan(plan),
       activeEventId: null,
       activeAnchorId: null,
-      viewMode: "timeline",
+      viewMode: "calendar",
     } satisfies PlanStoreState)),
   exportPlan: (): string => JSON.stringify(normalizePlan(state.plan), null, 2),
   resetToSample: () =>
     setState(() => ({
       plan: normalizePlan(sampleCorePlan),
-      viewMode: "timeline",
+      viewMode: "calendar",
       activeAnchorId: null,
       activeEventId: null,
     } satisfies PlanStoreState)),

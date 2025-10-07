@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 interface DialogContextValue {
@@ -37,7 +37,7 @@ export function DialogTrigger({ children }: { children: React.ReactNode }) {
 
 export function DialogContent({ children }: { children: React.ReactNode }) {
   const { open, onOpenChange } = useDialogContext();
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -49,24 +49,26 @@ export function DialogContent({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onOpenChange]);
 
-  if (!open) {
-    return null;
-  }
+  useEffect(() => {
+    if (!open) {
+      setPortalTarget(null);
+      return;
+    }
 
-  if (!containerRef.current) {
     const element = document.createElement("div");
     document.body.appendChild(element);
-    containerRef.current = element;
-  }
-
-  useEffect(() => {
-    const container = containerRef.current;
+    setPortalTarget(element);
     return () => {
-      if (container && container.parentNode) {
-        container.parentNode.removeChild(container);
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
       }
+      setPortalTarget(null);
     };
-  }, []);
+  }, [open]);
+
+  if (!open || !portalTarget) {
+    return null;
+  }
 
   const node = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur">
@@ -83,7 +85,7 @@ export function DialogContent({ children }: { children: React.ReactNode }) {
     </div>
   );
 
-  return createPortal(node, containerRef.current);
+  return createPortal(node, portalTarget);
 }
 
 export function DialogHeader({ children }: { children: React.ReactNode }) {

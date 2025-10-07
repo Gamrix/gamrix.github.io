@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { PlanEditor } from "./PlanEditor";
@@ -54,8 +54,8 @@ describe("PlanEditor", () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    const eventCard = await screen.findByRole("button", { name: /Flight to Taipei/i });
-    await user.click(eventCard);
+    const eventCards = await screen.findAllByRole("button", { name: /Flight to Taipei/i });
+    await user.click(eventCards[0]);
 
     expect(await screen.findByText(/Edit event/i)).toBeInTheDocument();
 
@@ -67,7 +67,8 @@ describe("PlanEditor", () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    await user.click(screen.getByRole("button", { name: "Schedule" }));
+    const viewGroup = screen.getByRole("group", { name: /View mode/i });
+    await user.click(within(viewGroup).getByRole("button", { name: "Schedule" }));
 
     const anchorButton = await screen.findByRole("button", { name: /Wake anchor/i });
     await user.click(anchorButton);
@@ -79,10 +80,13 @@ describe("PlanEditor", () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    const sleepInput = screen.getByLabelText(/Sleep hours/i);
+    const editButtons = screen.getAllByRole("button", { name: "Edit base parameters" });
+    await user.click(editButtons[0]);
+
+    const sleepInput = await screen.findByLabelText(/Sleep hours/i);
     await user.clear(sleepInput);
     await user.type(sleepInput, "7.5");
-    await user.click(screen.getByRole("button", { name: /Update plan/i }));
+    await user.click(screen.getByRole("button", { name: /Apply changes/i }));
 
     const wakeSummary = await screen.findByText(/Kickoff sleep/i);
     const valueNode = wakeSummary.parentElement?.querySelector("dd");
@@ -100,7 +104,8 @@ describe("PlanEditor", () => {
 
     render(<PlanEditor />);
 
-    await user.click(screen.getByRole("button", { name: /Export JSON/i }));
+    const exportButtons = screen.getAllByRole("button", { name: /Export JSON/i });
+    await user.click(exportButtons[0]);
 
     expect(writeText).toHaveBeenCalled();
 

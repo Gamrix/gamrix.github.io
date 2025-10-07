@@ -6,6 +6,7 @@ import { computePlan, type CorePlan } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
 import { ScheduleTable } from "./ScheduleTable";
+import { CalendarView } from "./calendar/CalendarView";
 
 const VIEW_LABEL: Record<"home" | "target", string> = {
   home: "Home Zone",
@@ -14,6 +15,13 @@ const VIEW_LABEL: Record<"home" | "target", string> = {
 
 const formatZoneLabel = (plan: CorePlan, key: "home" | "target") =>
   key === "home" ? plan.params.homeZone : plan.params.targetZone;
+
+type DemoViewMode = "calendar" | "table";
+
+const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
+  calendar: "Calendar",
+  table: "Schedule",
+};
 
 const formatOffset = (hours: number) => {
   const sign = hours >= 0 ? "+" : "";
@@ -60,6 +68,7 @@ const ProjectedEvents = ({
 function ZoneShiftDemoComponent() {
   const [planState, setPlanState] = useState<CorePlan>(() => sampleCorePlan);
   const displayZone = planState.prefs?.displayZone ?? "target";
+  const [viewMode, setViewMode] = useState<DemoViewMode>("calendar");
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [formState, setFormState] = useState({ date: "", time: "", note: "" });
   const [formError, setFormError] = useState<string | null>(null);
@@ -158,23 +167,42 @@ function ZoneShiftDemoComponent() {
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">Zoneshift Alignment Preview</h2>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Display zone
-            </span>
-            <div className="flex gap-2">
-              {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  variant={option === displayZone ? "default" : "outline"}
-                  className="text-xs"
-                  onClick={() => handleDisplayZoneChange(option)}
-                  aria-pressed={option === displayZone}
-                >
-                  {VIEW_LABEL[option]}
-                </Button>
-              ))}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                Display zone
+              </span>
+              <div className="flex gap-2">
+                {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant={option === displayZone ? "default" : "outline"}
+                    className="text-xs"
+                    onClick={() => handleDisplayZoneChange(option)}
+                    aria-pressed={option === displayZone}
+                  >
+                    {VIEW_LABEL[option]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">View</span>
+              <div className="flex gap-2">
+                {(Object.keys(DEMO_VIEW_LABEL) as DemoViewMode[]).map((mode) => (
+                  <Button
+                    key={mode}
+                    type="button"
+                    variant={mode === viewMode ? "default" : "outline"}
+                    className="text-xs"
+                    onClick={() => setViewMode(mode)}
+                    aria-pressed={mode === viewMode}
+                  >
+                    {DEMO_VIEW_LABEL[mode]}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -197,11 +225,21 @@ function ZoneShiftDemoComponent() {
         </dl>
       </header>
 
-      <ScheduleTable
-        computed={computed}
-        displayZoneId={displayZoneId}
-        onEditAnchor={setActiveAnchorId}
-      />
+      {viewMode === "calendar" ? (
+        <CalendarView
+          plan={planState}
+          computed={computed}
+          displayZoneId={displayZoneId}
+          onEditEvent={() => undefined}
+          onEditAnchor={setActiveAnchorId}
+        />
+      ) : (
+        <ScheduleTable
+          computed={computed}
+          displayZoneId={displayZoneId}
+          onEditAnchor={setActiveAnchorId}
+        />
+      )}
 
       <ProjectedEvents computed={computed} />
 

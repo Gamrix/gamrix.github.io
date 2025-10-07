@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { CorePlan } from "@/scripts/projects/zoneshift/model";
 
 interface PlanParamsFormProps {
   plan: CorePlan;
   onUpdateParams: (partial: Partial<CorePlan["params"]>) => void;
   onSetTimeStep: (minutes: number) => void;
+  onSubmitSuccess?: () => void;
+  onCancel?: () => void;
+  className?: string;
+  submitLabel?: string;
 }
 
 const formatLocalDateTime = (instantIso: string, zone: string) =>
@@ -30,7 +35,15 @@ const toInstant = (value: string, zone: string) => {
     .toString();
 };
 
-export function PlanParamsForm({ plan, onUpdateParams, onSetTimeStep }: PlanParamsFormProps) {
+export function PlanParamsForm({
+  plan,
+  onUpdateParams,
+  onSetTimeStep,
+  onSubmitSuccess,
+  onCancel,
+  className,
+  submitLabel,
+}: PlanParamsFormProps) {
   const [homeZone, setHomeZone] = useState(plan.params.homeZone);
   const [targetZone, setTargetZone] = useState(plan.params.targetZone);
   const [startSleepLocal, setStartSleepLocal] = useState(
@@ -51,7 +64,7 @@ export function PlanParamsForm({ plan, onUpdateParams, onSetTimeStep }: PlanPara
     setTimeStep(plan.prefs?.timeStepMinutes ?? 30);
   }, [plan]);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       onUpdateParams({
@@ -63,13 +76,14 @@ export function PlanParamsForm({ plan, onUpdateParams, onSetTimeStep }: PlanPara
         maxShiftEarlierPerDayHours: maxEarlier,
       });
       onSetTimeStep(timeStep);
+      onSubmitSuccess?.();
     } catch (error) {
       console.error("Unable to persist parameters", error);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border bg-card/70 p-4 text-sm shadow-sm">
+    <form onSubmit={handleSubmit} className={cn("space-y-3 text-sm", className)}>
       <div>
         <h2 className="text-base font-semibold text-foreground">Plan parameters</h2>
         <p className="text-xs text-muted-foreground">Adjust the core sleep settings for this plan.</p>
@@ -167,9 +181,14 @@ export function PlanParamsForm({ plan, onUpdateParams, onSetTimeStep }: PlanPara
         </label>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {onCancel ? (
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
         <Button type="submit" size="sm">
-          Update plan
+          {submitLabel ?? "Update plan"}
         </Button>
       </div>
     </form>
