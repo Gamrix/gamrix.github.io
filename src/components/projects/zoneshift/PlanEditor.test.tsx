@@ -17,10 +17,12 @@ describe("PlanEditor", () => {
       readonly rootMargin = "0px";
       readonly thresholds = [];
       constructor(callback: IntersectionObserverCallback) {
-        this.callback = callback;
+        this._callback = callback;
       }
-      private readonly callback: IntersectionObserverCallback;
-      observe() {}
+      private readonly _callback: IntersectionObserverCallback;
+      observe(_target: Element) {
+        this._callback([], this);
+      }
       unobserve() {}
       disconnect() {}
       takeRecords(): IntersectionObserverEntry[] {

@@ -318,7 +318,7 @@ export function interpolateDailyWakeTimes(
 
 export function computeBrightWindow(
   wake: Temporal.ZonedDateTime,
-  sleepStart: Temporal.ZonedDateTime,
+  _sleepStart: Temporal.ZonedDateTime,
 ): { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime } {
   const brightStart = wake;
   const brightEnd = wake.add({ hours: 5 });

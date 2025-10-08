@@ -35,7 +35,9 @@ let state: PlanStoreState = {
 const listeners = new Set<() => void>();
 
 const emit = () => {
-  listeners.forEach((listener) => listener());
+  for (const listener of listeners) {
+    listener();
+  }
 };
 
 const setState = (updater: (prev: PlanStoreState) => PlanStoreState) => {

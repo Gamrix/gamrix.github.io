@@ -67,7 +67,8 @@ export function PlanEditor() {
             <Button type="button" size="sm" variant="outline" onClick={() => setParamsOpen(true)}>
               Edit base parameters
             </Button>
-            <div role="group" aria-label="View mode" className="flex gap-2">
+            <fieldset className="flex gap-2">
+              <legend className="sr-only">View mode</legend>
               {VIEW_OPTIONS.map((option) => (
                 <Button
                   key={option.id}
@@ -80,7 +81,7 @@ export function PlanEditor() {
                   {option.label}
                 </Button>
               ))}
-            </div>
+            </fieldset>
           </div>
         </div>
 

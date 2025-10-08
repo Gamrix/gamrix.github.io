@@ -2,6 +2,7 @@
 
 @import "tw-animate-css";
 
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind theme tokens */
 @theme inline {
   --font-sans: var(--font-inter);
   --radius-sm: calc(var(--radius) - 4px);
@@ -112,9 +113,11 @@
 
 @layer base {
   * {
+    /* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind apply helper */
     @apply border-border outline-ring/50;
   }
   body {
+    /* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind apply helper */
     @apply bg-background text-foreground;
   }
 }

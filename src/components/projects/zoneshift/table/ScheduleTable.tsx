@@ -35,18 +35,14 @@ const anchorKindLabel = {
 } as const;
 
 export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: ScheduleTableProps) {
-  if (computed.days.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Schedule data becomes available once you provide core plan details.
-      </div>
-    );
-  }
-
-  const [visibleCount, setVisibleCount] = useState(() => Math.min(7, computed.days.length));
+  const hasDays = computed.days.length > 0;
+  const [visibleCount, setVisibleCount] = useState(() => (hasDays ? Math.min(7, computed.days.length) : 0));
   const sentinelRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
+    if (!hasDays) {
+      return undefined;
+    }
     const node = sentinelRef.current;
     if (!node || typeof IntersectionObserver === "undefined") {
       return undefined;
@@ -60,13 +56,28 @@ export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: Schedul
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [computed.days.length]);
+  }, [computed.days.length, hasDays]);
 
   useEffect(() => {
+    if (!hasDays) {
+      setVisibleCount(0);
+      return;
+    }
     setVisibleCount((prev) => Math.min(Math.max(prev, 7), computed.days.length));
-  }, [computed.days.length]);
+  }, [computed.days.length, hasDays]);
 
-  const days = useMemo(() => computed.days.slice(0, visibleCount), [computed.days, visibleCount]);
+  const days = useMemo(
+    () => (hasDays ? computed.days.slice(0, visibleCount) : []),
+    [computed.days, visibleCount, hasDays],
+  );
+
+  if (!hasDays) {
+    return (
+      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        Schedule data becomes available once you provide core plan details.
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border bg-card shadow-sm">

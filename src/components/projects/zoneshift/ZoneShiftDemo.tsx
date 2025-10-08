@@ -1,5 +1,5 @@
 import { Temporal } from "@js-temporal/polyfill";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { computePlan, type CorePlan } from "@/scripts/projects/zoneshift/model";
@@ -81,6 +81,9 @@ function ZoneShiftDemoComponent() {
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [formState, setFormState] = useState({ date: "", time: "", note: "" });
   const [formError, setFormError] = useState<string | null>(null);
+  const anchorDateFieldId = useId();
+  const anchorTimeFieldId = useId();
+  const anchorNoteFieldId = useId();
 
   const computed = useMemo(() => computePlan(planState), [planState]);
 
@@ -396,10 +399,10 @@ function ZoneShiftDemoComponent() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground" htmlFor={anchorDateFieldId}>
               Local date
               <input
-                id="anchor-date"
+                id={anchorDateFieldId}
                 name="anchor-date"
                 type="date"
                 required
@@ -408,10 +411,10 @@ function ZoneShiftDemoComponent() {
                 className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground" htmlFor={anchorTimeFieldId}>
               Local time
               <input
-                id="anchor-time"
+                id={anchorTimeFieldId}
                 name="anchor-time"
                 type="time"
                 required
@@ -420,10 +423,13 @@ function ZoneShiftDemoComponent() {
                 className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground md:col-span-1 md:[grid-column:span_1_/_auto]">
+            <label
+              className="flex flex-col gap-1 text-xs font-medium text-muted-foreground md:col-span-1 md:[grid-column:span_1_/_auto]"
+              htmlFor={anchorNoteFieldId}
+            >
               Note (optional)
               <input
-                id="anchor-note"
+                id={anchorNoteFieldId}
                 name="anchor-note"
                 type="text"
                 value={formState.note}

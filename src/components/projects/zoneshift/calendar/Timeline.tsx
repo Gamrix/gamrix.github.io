@@ -289,7 +289,7 @@ export function Timeline({
 
   const beginEventDrag = useCallback(
     (
-      pointerEvent: React.PointerEvent<HTMLDivElement>,
+      pointerEvent: React.PointerEvent<HTMLButtonElement>,
       item: TimelineEvent,
     ) => {
       setPointerCaptureSafe(pointerEvent);
@@ -313,6 +313,8 @@ export function Timeline({
       item: TimelineEvent,
       mode: "event-resize-start" | "event-resize-end",
     ) => {
+      pointerEvent.preventDefault();
+      pointerEvent.stopPropagation();
       setPointerCaptureSafe(pointerEvent);
       setDragState({
         type: mode,
@@ -494,6 +496,8 @@ export function Timeline({
                   }}
                   className="relative border-l border-r border-b bg-card"
                   data-testid={`timeline-scroll-${isoDate}`}
+                  role="application"
+                  aria-label={`Timeline interactions for ${isoDate}`}
                   style={{ height: `${CALENDAR_HEIGHT}px` }}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
@@ -540,16 +544,15 @@ export function Timeline({
                     );
                     const durationMinutes = Math.max(endMinutes - startMinutes, timeStepMinutes);
                     return (
-                      <div
+                      <button
                         key={item.id}
-                        role="button"
-                        tabIndex={0}
+                        type="button"
                         onClick={() => onEditEvent(item.id)}
                         onPointerDown={(event) => beginEventDrag(event, item)}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
-                        className={`absolute inset-x-2 cursor-grab rounded-md border px-2 py-1 text-xs shadow-sm outline-none ring-primary focus-visible:ring-2 ${
+                        className={`absolute inset-x-2 cursor-grab rounded-md border px-2 py-1 text-left text-xs shadow-sm outline-none ring-primary focus-visible:ring-2 ${
                           item.conflict
                             ? "border-primary bg-primary/20 text-primary"
                             : "border-primary/70 bg-primary/10 text-primary"
@@ -584,7 +587,7 @@ export function Timeline({
                             />
                           </>
                         ) : null}
-                      </div>
+                      </button>
                     );
                   })}
 
