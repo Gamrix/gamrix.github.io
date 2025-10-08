@@ -11,7 +11,7 @@ import {
 } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
-export type ViewMode = "calendar" | "table";
+export type ViewMode = "calendar" | "timeline" | "mini" | "table";
 
 interface PlanStoreState {
   plan: CorePlan;

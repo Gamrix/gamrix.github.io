@@ -7,6 +7,8 @@ import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
 import { ScheduleTable } from "./ScheduleTable";
 import { CalendarView } from "./calendar/CalendarView";
+import { CalendarListView } from "./calendar/CalendarListView";
+import { MiniCalendarView } from "./calendar/MiniCalendarView";
 
 const VIEW_LABEL: Record<"home" | "target", string> = {
   home: "Home Zone",
@@ -16,11 +18,13 @@ const VIEW_LABEL: Record<"home" | "target", string> = {
 const formatZoneLabel = (plan: CorePlan, key: "home" | "target") =>
   key === "home" ? plan.params.homeZone : plan.params.targetZone;
 
-type DemoViewMode = "calendar" | "table";
+type DemoViewMode = "calendar" | "timeline" | "mini" | "table";
 
 const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
-  calendar: "Calendar",
-  table: "Schedule",
+  calendar: "List View",
+  timeline: "Calendar View",
+  mini: "Mini View",
+  table: "Table View",
 };
 
 const formatOffset = (hours: number) => {
@@ -35,6 +39,13 @@ const formatProjectedTime = (value: string) => {
   const time = zdt.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
   return `${month}/${day} ${time}`;
 };
+
+const clampMinutesToDay = (minute: number) => Math.max(0, Math.min(minute, 24 * 60));
+
+const snapMinutes = (minute: number, step: number) => clampMinutesToDay(Math.round(minute / step) * step);
+
+const makeAnchorId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `anchor-${Date.now()}`;
 
 const ProjectedEvents = ({
   computed,
@@ -123,6 +134,101 @@ function ZoneShiftDemoComponent() {
 
   const handleAnchorFieldChange = (field: "date" | "time" | "note", value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEventChange = (
+    eventId: string,
+    payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string },
+  ) => {
+    setPlanState((prev) => {
+      const step = prev.prefs?.timeStepMinutes ?? 30;
+      const nextEvents = prev.events.map((event) => {
+        if (event.id !== eventId) {
+          return event;
+        }
+        const startInZone = payload.start.withTimeZone(event.zone);
+        const startOfDay = Temporal.ZonedDateTime.from({
+          timeZone: startInZone.timeZoneId,
+          year: startInZone.year,
+          month: startInZone.month,
+          day: startInZone.day,
+        });
+        const startMinutesRaw = startInZone.since(startOfDay).total({ unit: "minutes" });
+        const startMinutes = snapMinutes(startMinutesRaw, step);
+        const snappedStart = startOfDay.add({ minutes: startMinutes });
+
+        let nextEndIso = event.end;
+        if (event.end && payload.end) {
+          const endInZone = payload.end.withTimeZone(event.zone);
+          const endOfDay = Temporal.ZonedDateTime.from({
+            timeZone: endInZone.timeZoneId,
+            year: endInZone.year,
+            month: endInZone.month,
+            day: endInZone.day,
+          });
+          const endMinutesRaw = endInZone.since(endOfDay).total({ unit: "minutes" });
+          const endMinutes = snapMinutes(endMinutesRaw, step);
+          const snappedEnd = endOfDay.add({ minutes: Math.max(endMinutes, startMinutes + step) });
+          nextEndIso = snappedEnd.toInstant().toString();
+        }
+
+        return {
+          ...event,
+          start: snappedStart.toInstant().toString(),
+          ...(event.end && nextEndIso ? { end: nextEndIso } : event.end ? { end: event.end } : {}),
+        };
+      });
+      return { ...prev, events: nextEvents } satisfies CorePlan;
+    });
+  };
+
+  const handleAnchorChange = (
+    anchorId: string,
+    payload: { instant: Temporal.ZonedDateTime; zone: string },
+  ) => {
+    setPlanState((prev) => {
+      const step = prev.prefs?.timeStepMinutes ?? 30;
+      const nextAnchors = prev.anchors.map((anchor) => {
+        if (anchor.id !== anchorId) {
+          return anchor;
+        }
+        const instantInZone = payload.instant.withTimeZone(anchor.zone);
+        const startOfDay = Temporal.ZonedDateTime.from({
+          timeZone: instantInZone.timeZoneId,
+          year: instantInZone.year,
+          month: instantInZone.month,
+          day: instantInZone.day,
+        });
+        const totalMinutesRaw = instantInZone.since(startOfDay).total({ unit: "minutes" });
+        const totalMinutes = snapMinutes(totalMinutesRaw, step);
+        const snapped = startOfDay.add({ minutes: totalMinutes });
+        return {
+          ...anchor,
+          instant: snapped.toInstant().toString(),
+        };
+      });
+      return { ...prev, anchors: nextAnchors } satisfies CorePlan;
+    });
+  };
+
+  const handleAddAnchor = (
+    payload: { kind: "wake" | "sleep"; zoned: Temporal.ZonedDateTime; zone: string },
+  ) => {
+    const newAnchorId = makeAnchorId();
+    const instantIso = payload.zoned.withTimeZone(payload.zone).toInstant().toString();
+    setPlanState((prev) => ({
+      ...prev,
+      anchors: [
+        ...prev.anchors,
+        {
+          id: newAnchorId,
+          kind: payload.kind,
+          zone: payload.zone,
+          instant: instantIso,
+        },
+      ],
+    } satisfies CorePlan));
+    setActiveAnchorId(newAnchorId);
   };
 
   const handleAnchorSave = (event: FormEvent<HTMLFormElement>) => {
@@ -236,12 +342,29 @@ function ZoneShiftDemoComponent() {
       </header>
 
       {viewMode === "calendar" ? (
+        <CalendarListView
+          plan={planState}
+          computed={computed}
+          displayZoneId={displayZoneId}
+          onEditEvent={() => undefined}
+          onEditAnchor={setActiveAnchorId}
+        />
+      ) : viewMode === "timeline" ? (
         <CalendarView
           plan={planState}
           computed={computed}
           displayZoneId={displayZoneId}
           onEditEvent={() => undefined}
           onEditAnchor={setActiveAnchorId}
+          onEventChange={handleEventChange}
+          onAnchorChange={handleAnchorChange}
+          onAddAnchor={handleAddAnchor}
+        />
+      ) : viewMode === "mini" ? (
+        <MiniCalendarView
+          computed={computed}
+          displayZoneId={displayZoneId}
+          onEditEvent={() => undefined}
         />
       ) : (
         <ScheduleTable

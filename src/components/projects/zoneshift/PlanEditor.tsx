@@ -3,6 +3,8 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
 import { CalendarView } from "./calendar/CalendarView";
+import { CalendarListView } from "./calendar/CalendarListView";
+import { MiniCalendarView } from "./calendar/MiniCalendarView";
 import { PlanParamsForm } from "./forms/PlanParamsForm";
 import { AnchorDialog } from "./dialogs/AnchorDialog";
 import { EventDialog } from "./dialogs/EventDialog";
@@ -17,11 +19,13 @@ import { ScheduleTable } from "./table/ScheduleTable";
 import { ImportExport } from "./toolbar/ImportExport";
 import { TzToggle } from "./toolbar/TzToggle";
 import { computePlan } from "@/scripts/projects/zoneshift/model";
-import { planActions, type ViewMode, usePlanStore } from "./planStore";
+import { planActions, planStore, type ViewMode, usePlanStore } from "./planStore";
 
 const VIEW_OPTIONS: Array<{ id: ViewMode; label: string }> = [
-  { id: "calendar", label: "Calendar" },
-  { id: "table", label: "Schedule" },
+  { id: "calendar", label: "List View" },
+  { id: "timeline", label: "Calendar View" },
+  { id: "mini", label: "Mini View" },
+  { id: "table", label: "Table View" },
 ];
 
 export function PlanEditor() {
@@ -33,6 +37,7 @@ export function PlanEditor() {
 
   const displayZone = plan.prefs?.displayZone ?? "target";
   const displayZoneId = displayZone === "home" ? plan.params.homeZone : plan.params.targetZone;
+  const timeStepMinutes = plan.prefs?.timeStepMinutes ?? 30;
 
   const computed = useMemo(() => computePlan(plan), [plan]);
 
@@ -117,12 +122,41 @@ export function PlanEditor() {
           />
 
           {viewMode === "calendar" ? (
+            <CalendarListView
+              plan={plan}
+              computed={computed}
+              displayZoneId={displayZoneId}
+              onEditEvent={planActions.setActiveEvent}
+              onEditAnchor={planActions.setActiveAnchor}
+            />
+          ) : viewMode === "timeline" ? (
             <CalendarView
               plan={plan}
               computed={computed}
               displayZoneId={displayZoneId}
               onEditEvent={planActions.setActiveEvent}
               onEditAnchor={planActions.setActiveAnchor}
+              onEventChange={(eventId, payload) =>
+                planActions.moveEvent(eventId, payload, timeStepMinutes)
+              }
+              onAnchorChange={(anchorId, payload) =>
+                planActions.moveAnchor(anchorId, payload, timeStepMinutes)
+              }
+              onAddAnchor={(payload) => {
+                const existingIds = new Set(plan.anchors.map((anchor) => anchor.id));
+                planActions.addAnchorAt(payload);
+                const nextAnchors = planStore.getState().plan.anchors;
+                const created = nextAnchors.find((anchor) => !existingIds.has(anchor.id));
+                if (created) {
+                  planActions.setActiveAnchor(created.id);
+                }
+              }}
+            />
+          ) : viewMode === "mini" ? (
+            <MiniCalendarView
+              computed={computed}
+              displayZoneId={displayZoneId}
+              onEditEvent={planActions.setActiveEvent}
             />
           ) : (
             <ScheduleTable

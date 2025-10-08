@@ -38,16 +38,39 @@ describe("PlanEditor", () => {
     resetPlanState();
   });
 
-  it("toggles between calendar and schedule views", async () => {
+  it("toggles between list and table views", async () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
-    await user.click(screen.getByRole("button", { name: "Schedule" }));
+    await user.click(screen.getByRole("button", { name: "Table View" }));
 
-    expect(screen.getByRole("button", { name: "Schedule" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Table View" })).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByRole("table", { name: /Derived daily sleep/i })).toBeInTheDocument();
+  });
+
+  it("activates the calendar timeline view", async () => {
+    const user = userEvent.setup();
+    render(<PlanEditor />);
+
+    const calendarButtons = screen.getAllByRole("button", { name: "Calendar View" });
+    await user.click(calendarButtons[0]);
+
+    expect(calendarButtons[0]).toHaveAttribute("aria-pressed", "true");
+    const timelineDays = await screen.findAllByTestId(/timeline-day-/i);
+    expect(timelineDays.length).toBeGreaterThan(0);
+  });
+
+  it("displays the mini calendar view", async () => {
+    const user = userEvent.setup();
+    render(<PlanEditor />);
+
+    const miniButtons = screen.getAllByRole("button", { name: "Mini View" });
+    await user.click(miniButtons[0]);
+
+    expect(miniButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText(/Mini calendar/i)).toBeInTheDocument();
   });
 
   it("opens the event dialog when an event is selected", async () => {
@@ -60,7 +83,8 @@ describe("PlanEditor", () => {
     const eventHeadings = await screen.findAllByText(/Edit event/i);
     expect(eventHeadings.length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const cancelButtons = screen.getAllByRole("button", { name: "Cancel" });
+    await user.click(cancelButtons[cancelButtons.length - 1]);
     expect(screen.queryByText(/Edit event/i)).not.toBeInTheDocument();
   });
 
@@ -70,10 +94,10 @@ describe("PlanEditor", () => {
 
     const viewGroups = screen.getAllByRole("group", { name: /View mode/i });
     const viewGroup = viewGroups[0];
-    await user.click(within(viewGroup).getByRole("button", { name: "Schedule" }));
+    await user.click(within(viewGroup).getByRole("button", { name: "Table View" }));
 
-    const anchorButton = await screen.findByRole("button", { name: /Wake time/i });
-    await user.click(anchorButton);
+    const anchorButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    await user.click(anchorButtons[0]);
 
     const wakeTimeHeadings = await screen.findAllByText(/Edit Wake Time/i);
     expect(wakeTimeHeadings.length).toBeGreaterThan(0);

@@ -9,7 +9,7 @@ describe("ZoneShiftDemo", () => {
     render(<ZoneShiftDemo />);
 
     expect(screen.getByText("Asia/Taipei")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("button", { name: "Home Zone" }));
 
@@ -20,8 +20,8 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    const scheduleButtons = screen.getAllByRole("button", { name: "Schedule" });
-    await user.click(scheduleButtons[0]);
+    const tableButtons = screen.getAllByRole("button", { name: "Table View" });
+    await user.click(tableButtons[0]);
 
     const editButtons = await screen.findAllByRole("button", { name: /Wake time/i });
     await user.click(editButtons[0]);
@@ -32,6 +32,23 @@ describe("ZoneShiftDemo", () => {
 
     await user.click(screen.getByRole("button", { name: /Save wake time/i }));
 
-    expect(await screen.findByText(/Wake time @ 08:15/)).toBeInTheDocument();
+    const updatedWakeButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    await user.click(updatedWakeButtons[0]);
+
+    const updatedTimeInput = await screen.findByLabelText(/Local time/i);
+    expect(updatedTimeInput).toHaveValue("08:15");
+
+    const cancelButtons = screen.getAllByRole("button", { name: /Cancel/i });
+    await user.click(cancelButtons[cancelButtons.length - 1]);
+  });
+
+  it("reveals the mini calendar view", async () => {
+    const user = userEvent.setup();
+    render(<ZoneShiftDemo />);
+
+    const miniButtons = screen.getAllByRole("button", { name: "Mini View" });
+    await user.click(miniButtons[0]);
+
+    expect(await screen.findByText(/Mini calendar/i)).toBeInTheDocument();
   });
 });
