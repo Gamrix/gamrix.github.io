@@ -16,9 +16,9 @@ import {
   persistPlanToStorage,
 } from "./planPersistence";
 
-const VIEW_LABEL: Record<"home" | "target", string> = {
-  home: "Home Zone",
-  target: "Target Zone",
+const formatZoneName = (zoneId: string) => {
+  const parts = zoneId.split("/");
+  return (parts[parts.length - 1] ?? zoneId).replace(/_/g, " ");
 };
 
 type DemoViewMode = "calendar" | "timeline" | "mini" | "table";
@@ -89,6 +89,13 @@ function ZoneShiftDemoComponent() {
 
   const displayZoneId =
     displayZone === "home" ? planState.params.homeZone : planState.params.targetZone;
+  const zoneLabels = useMemo(
+    () => ({
+      home: formatZoneName(planState.params.homeZone),
+      target: formatZoneName(planState.params.targetZone),
+    }),
+    [planState.params.homeZone, planState.params.targetZone],
+  );
 
   const activeAnchor = useMemo(
     () => planState.anchors.find((anchor) => anchor.id === activeAnchorId) ?? null,
@@ -298,7 +305,7 @@ function ZoneShiftDemoComponent() {
                 Display zone
               </span>
               <div className="flex gap-2">
-                {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
+                {(["home", "target"] as const).map((option) => (
                   <Button
                     key={option}
                     type="button"
@@ -307,7 +314,7 @@ function ZoneShiftDemoComponent() {
                     onClick={() => handleDisplayZoneChange(option)}
                     aria-pressed={option === displayZone}
                   >
-                    {VIEW_LABEL[option]}
+                    {zoneLabels[option]}
                   </Button>
                 ))}
               </div>
