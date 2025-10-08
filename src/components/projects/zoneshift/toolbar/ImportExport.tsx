@@ -7,6 +7,7 @@ interface ImportExportProps {
   onImport: (plan: CorePlan) => void;
   onReset: () => void;
   exportPlan: () => string;
+  className?: string;
 }
 
 const encodePlanForHash = (planJson: string) => {
@@ -34,7 +35,7 @@ const decodePlanFromHash = (): CorePlan | null => {
   }
 };
 
-export function ImportExport({ onImport, onReset, exportPlan }: ImportExportProps) {
+export function ImportExport({ onImport, onReset, exportPlan, className }: ImportExportProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -90,14 +91,10 @@ export function ImportExport({ onImport, onReset, exportPlan }: ImportExportProp
     }
   };
 
+  const containerClass = className ? `flex flex-col gap-1 ${className}` : "flex flex-col gap-1";
+
   return (
-    <div className="space-y-3 rounded-lg border bg-card/70 p-4 text-sm shadow-sm">
-      <div>
-        <h2 className="text-base font-semibold text-foreground">Import &amp; export</h2>
-        <p className="text-xs text-muted-foreground">
-          Move plans across devices or share a static link.
-        </p>
-      </div>
+    <div className={containerClass}>
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={handleExport}>
           Export JSON
@@ -135,7 +132,9 @@ export function ImportExport({ onImport, onReset, exportPlan }: ImportExportProp
         onChange={handleImportFile}
         className="hidden"
       />
-      {status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
+      {status ? (
+        <p className="text-xs text-muted-foreground leading-tight">{status}</p>
+      ) : null}
     </div>
   );
 }

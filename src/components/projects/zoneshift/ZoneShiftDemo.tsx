@@ -305,11 +305,11 @@ function ZoneShiftDemoComponent() {
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">Zoneshift Alignment Preview</h2>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Display zone
-              </span>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Display zone
+            </span>
               <div className="flex gap-2">
                 {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
                   <Button
@@ -323,11 +323,11 @@ function ZoneShiftDemoComponent() {
                     {VIEW_LABEL[option]}
                   </Button>
                 ))}
-              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">View</span>
-              <div className="flex gap-2">
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">View</span>
+            <div className="flex gap-2">
                 {(Object.keys(DEMO_VIEW_LABEL) as DemoViewMode[]).map((mode) => (
                   <Button
                     key={mode}
@@ -343,6 +343,12 @@ function ZoneShiftDemoComponent() {
               </div>
             </div>
           </div>
+          <ImportExport
+            onImport={handleImportPlan}
+            onReset={handleResetPlan}
+            exportPlan={handleExportPlan}
+            className="items-end text-right"
+          />
         </div>
 
         <dl className="grid gap-6 text-sm text-muted-foreground md:grid-cols-3">
@@ -362,14 +368,6 @@ function ZoneShiftDemoComponent() {
           </div>
         </dl>
       </header>
-
-      <div className="max-w-xl">
-        <ImportExport
-          onImport={handleImportPlan}
-          onReset={handleResetPlan}
-          exportPlan={handleExportPlan}
-        />
-      </div>
 
       {viewMode === "calendar" ? (
         <CalendarListView
