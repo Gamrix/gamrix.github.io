@@ -3,6 +3,7 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
 import type { ComputedView, CorePlan } from "@/scripts/projects/zoneshift/model";
+import { formatRangeLabel } from "../utils/timeSegments";
 
 interface CalendarListViewProps {
   plan: CorePlan;
@@ -122,7 +123,7 @@ export function CalendarListView({
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Sleep</dt>
                 <dd className="font-medium text-foreground">
-                  {day.sleepStartLocal} – {day.sleepEndLocal}
+                  {formatRangeLabel(day.sleepStartZoned, day.sleepEndZoned)}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
@@ -132,7 +133,7 @@ export function CalendarListView({
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Bright</dt>
                 <dd className="font-medium text-foreground">
-                  {day.brightStartLocal} – {day.brightEndLocal}
+                  {formatRangeLabel(day.brightStartZoned, day.brightEndZoned)}
                 </dd>
               </div>
             </dl>
@@ -173,7 +174,13 @@ export function CalendarListView({
                 events.map((event) => {
                   const startLabel = formatTime(event.start);
                   const endLabel = event.end ? formatTime(event.end) : null;
-                  const rangeLabel = endLabel ? `${startLabel} – ${endLabel}` : startLabel;
+                  const rangeLabel = endLabel
+                    ? formatRangeLabel(
+                        event.start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+                        event.end.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+                        { separator: " → " },
+                      )
+                    : startLabel;
                   return (
                     <Button
                       key={event.id}

@@ -3,6 +3,11 @@ import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
 import type { ComputedView } from "@/scripts/projects/zoneshift/model";
+import {
+  MINUTES_IN_DAY,
+  formatRangeLabel,
+  minutesSinceStartOfDay,
+} from "../utils/timeSegments";
 
 interface MiniCalendarViewProps {
   computed: ComputedView;
@@ -33,33 +38,13 @@ interface MiniAnchor {
   label: string;
 }
 
-const MINUTES_IN_DAY = 24 * 60;
 const TIMELINE_HEIGHT = "min(26rem, 70vh)";
 const HEADER_HEIGHT = "2.5rem";
 const AXIS_WIDTH = "clamp(2.25rem, 12vw, 3.5rem)";
 const TOTAL_HEIGHT = `calc(${TIMELINE_HEIGHT} + ${HEADER_HEIGHT})`;
 
-const parseLocalTime = (label: string) => {
-  if (!label || label === "--:--") {
-    return null;
-  }
-  const [hourString, minuteString] = label.split(":");
-  const hour = Number.parseInt(hourString ?? "0", 10);
-  const minute = Number.parseInt(minuteString ?? "0", 10);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return null;
-  }
-  return hour * 60 + minute;
-};
-
 const getMinutesFromZdt = (value: Temporal.ZonedDateTime) => {
-  const midnight = Temporal.ZonedDateTime.from({
-    timeZone: value.timeZoneId,
-    year: value.year,
-    month: value.month,
-    day: value.day,
-  });
-  return value.since(midnight).total({ unit: "minutes" });
+  return minutesSinceStartOfDay(value);
 };
 
 const carveRange = (segments: TimeSegment[], start: number, end: number, type: SegmentType) => {
@@ -130,7 +115,11 @@ export function MiniCalendarView({
           : undefined;
         const key = start.toPlainDate().toString();
         const summary = end
-          ? `${formatEventTime(start)} → ${formatEventTime(end)}`
+          ? formatRangeLabel(
+              start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+              end.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+              { separator: " → " },
+            )
           : formatEventTime(start);
         const bucket = mapping.get(key) ?? [];
         bucket.push({ id: event.id, title: event.title, start, end, summary });
@@ -148,11 +137,17 @@ export function MiniCalendarView({
   }, [computed.projectedEvents, displayZoneId]);
 
   const timelineByDay = useMemo(() => {
+    const toMinutes = (iso: string) => {
+      return minutesSinceStartOfDay(
+        Temporal.ZonedDateTime.from(iso).withTimeZone(displayZoneId),
+      );
+    };
+
     return computed.days.map((day) => {
-      const sleepStart = parseLocalTime(day.sleepStartLocal);
-      const sleepEnd = parseLocalTime(day.sleepEndLocal);
-      const brightStart = parseLocalTime(day.brightStartLocal);
-      const brightEnd = parseLocalTime(day.brightEndLocal);
+      const sleepStart = toMinutes(day.sleepStartZoned);
+      const sleepEnd = toMinutes(day.sleepEndZoned);
+      const brightStart = toMinutes(day.brightStartZoned);
+      const brightEnd = toMinutes(day.brightEndZoned);
 
       let segments: TimeSegment[] = [{ start: 0, end: MINUTES_IN_DAY, type: "other" }];
 
@@ -167,20 +162,15 @@ export function MiniCalendarView({
       const wakeAnchors: MiniAnchor[] = day.anchors
         .filter((anchor) => anchor.kind === "wake")
         .map((anchor) => {
-          try {
-            const zdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
-            const minutes = getMinutesFromZdt(zdt);
-            return {
-              id: anchor.id,
-              minuteOffset: minutes,
-              label: zdt
-                .toPlainTime()
-                .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-            } satisfies MiniAnchor;
-          } catch (error) {
-            console.error("Failed to project wake anchor for mini calendar", anchor.id, error);
-            return null;
-          }
+          const zdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
+          const minutes = getMinutesFromZdt(zdt);
+          return {
+            id: anchor.id,
+            minuteOffset: minutes,
+            label: zdt
+              .toPlainTime()
+              .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+          } satisfies MiniAnchor;
         })
         .filter((item): item is MiniAnchor => item !== null);
 

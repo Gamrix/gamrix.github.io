@@ -1,5 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import type { ComputedView } from "@/scripts/projects/zoneshift/model";
+import { formatRangeLabel, rangeDaySuffix } from "./utils/timeSegments";
 
 const WEEKDAY = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -106,12 +107,13 @@ export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: Schedul
                   {formatChange(day.changeThisDayHours)}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">{day.sleepStartLocal}</td>
-                <td className="px-6 py-4 align-middle font-mono text-sm">{day.sleepEndLocal}</td>
+                <td className="px-6 py-4 align-middle font-mono text-sm">
+                  {day.sleepEndLocal}
+                  {rangeDaySuffix(day.sleepStartZoned, day.sleepEndZoned)}
+                </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">{day.wakeTimeLocal}</td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {day.brightStartLocal === "--:--" || day.brightEndLocal === "--:--"
-                    ? "--"
-                    : `${day.brightStartLocal} – ${day.brightEndLocal}`}
+                  {formatRangeLabel(day.brightStartZoned, day.brightEndZoned)}
                 </td>
               </tr>
             );

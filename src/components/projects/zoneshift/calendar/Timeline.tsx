@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import type { ComputedView, CorePlan } from "@/scripts/projects/zoneshift/model";
+import { minutesSinceStartOfDay, rangeDaySuffix } from "../utils/timeSegments";
 
 const PIXELS_PER_MINUTE = 2;
 const CALENDAR_MINUTES = 24 * 60;
@@ -100,33 +101,7 @@ const releasePointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   }
 };
 
-const getMinutesSinceStartOfDay = (value: Temporal.ZonedDateTime) =>
-  value
-    .since(
-      Temporal.ZonedDateTime.from({
-        timeZone: value.timeZoneId,
-        year: value.year,
-        month: value.month,
-        day: value.day,
-      }),
-      { largestUnit: "minutes" },
-    )
-    .total({ unit: "minutes" });
-
 const clampMinutes = (minutes: number) => Math.max(0, Math.min(minutes, CALENDAR_MINUTES));
-
-const parseLocalTime = (isoDate: string, time: string, zone: string) => {
-  const [hourString, minuteString] = time.split(":");
-  const date = Temporal.PlainDate.from(isoDate);
-  return Temporal.ZonedDateTime.from({
-    timeZone: zone,
-    year: date.year,
-    month: date.month,
-    day: date.day,
-    hour: Number(hourString ?? 0),
-    minute: Number(minuteString ?? 0),
-  });
-};
 
 const formatMinutes = (minutes: number) => `${Math.floor(minutes / 60).toString().padStart(2, "0")}:${Math.floor(minutes % 60)
   .toString()
@@ -150,13 +125,15 @@ export function Timeline({
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, TimelineEvent[]>();
-    const daySleepWindows = new Map(
-      computed.days.map((day) => {
-        const sleepStart = parseLocalTime(day.dateTargetZone, day.sleepStartLocal, displayZoneId);
-        const sleepEnd = parseLocalTime(day.dateTargetZone, day.sleepEndLocal, displayZoneId);
-        return [day.dateTargetZone, { start: sleepStart, end: sleepEnd }];
-      }),
-    );
+    const daySleepWindows = new Map<string, { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }>();
+    computed.days.forEach((day) => {
+        const sleepStart = Temporal.ZonedDateTime.from(day.sleepStartZoned).withTimeZone(displayZoneId);
+        const sleepEnd = Temporal.ZonedDateTime.from(day.sleepEndZoned).withTimeZone(displayZoneId);
+        const entry = { start: sleepStart, end: sleepEnd };
+        daySleepWindows.set(day.dateTargetZone, entry);
+        daySleepWindows.set(sleepStart.toPlainDate().toString(), entry);
+        daySleepWindows.set(sleepEnd.toPlainDate().toString(), entry);
+    });
 
     computed.projectedEvents.forEach((event) => {
       try {
@@ -442,40 +419,57 @@ export function Timeline({
             const dateObj = Temporal.PlainDate.from(isoDate);
             const weekday = dateObj.toLocaleString("en-US", { weekday: "short" });
 
-            const sleepStartDisplay = parseLocalTime(isoDate, day.sleepStartLocal, displayZoneId);
-            const sleepEndDisplay = parseLocalTime(isoDate, day.sleepEndLocal, displayZoneId);
-            const sleepStartMinutes = clampMinutes(getMinutesSinceStartOfDay(sleepStartDisplay));
-            const sleepEndMinutes = clampMinutes(getMinutesSinceStartOfDay(sleepEndDisplay));
+            let sleepSegment: { top: number; height: number } | null = null;
+              const sleepStartDisplay = Temporal.ZonedDateTime.from(day.sleepStartZoned).withTimeZone(displayZoneId);
+              const sleepEndDisplay = Temporal.ZonedDateTime.from(day.sleepEndZoned).withTimeZone(displayZoneId);
+              const sleepStartMinutes = clampMinutes(minutesSinceStartOfDay(sleepStartDisplay));
+              const sleepDurationMinutes = Math.max(
+                Math.round(sleepEndDisplay.since(sleepStartDisplay).total({ unit: "minutes" })),
+                timeStepMinutes,
+              );
+              const sleepEndMinutes = sleepStartMinutes + sleepDurationMinutes;
+              const clampedEnd = Math.min(sleepEndMinutes, CALENDAR_MINUTES);
+              if (clampedEnd > sleepStartMinutes) {
+                sleepSegment = {
+                  top: sleepStartMinutes,
+                  height: clampedEnd - sleepStartMinutes,
+                };
+              }
 
-            const brightStartDisplay =
-              day.brightStartLocal !== "--:--"
-                ? parseLocalTime(isoDate, day.brightStartLocal, displayZoneId)
-                : null;
-            const brightEndDisplay =
-              day.brightEndLocal !== "--:--"
-                ? parseLocalTime(isoDate, day.brightEndLocal, displayZoneId)
-                : null;
-            const brightStartMinutes = brightStartDisplay
-              ? clampMinutes(getMinutesSinceStartOfDay(brightStartDisplay))
-              : null;
-            const brightEndMinutes = brightEndDisplay
-              ? clampMinutes(getMinutesSinceStartOfDay(brightEndDisplay))
-              : null;
+            let brightSegment: { top: number; height: number } | null = null;
+              const brightStartDisplay = Temporal.ZonedDateTime.from(day.brightStartZoned).withTimeZone(displayZoneId);
+              const brightEndDisplay = Temporal.ZonedDateTime.from(day.brightEndZoned).withTimeZone(displayZoneId);
+              const brightStartMinutes = clampMinutes(minutesSinceStartOfDay(brightStartDisplay));
+              const brightDurationMinutes = Math.max(
+                Math.round(brightEndDisplay.since(brightStartDisplay).total({ unit: "minutes" })),
+                timeStepMinutes,
+              );
+              const brightEndMinutes = brightStartMinutes + brightDurationMinutes;
+              const clampedBrightEnd = Math.min(brightEndMinutes, CALENDAR_MINUTES);
+              if (clampedBrightEnd > brightStartMinutes) {
+                brightSegment = {
+                  top: brightStartMinutes,
+                  height: clampedBrightEnd - brightStartMinutes,
+                };
+              }
 
             const visible = visibleRanges[isoDate] ?? { start: 0, end: CALENDAR_MINUTES };
             const renderStart = Math.max(0, visible.start - VIRTUAL_PADDING_MINUTES);
             const renderEnd = Math.min(CALENDAR_MINUTES, visible.end + VIRTUAL_PADDING_MINUTES);
 
             const visibleEvents = events.filter((event) => {
-              const startMinutes = clampMinutes(getMinutesSinceStartOfDay(event.start));
-              const endMinutes = clampMinutes(
-                event.end ? getMinutesSinceStartOfDay(event.end) : startMinutes + timeStepMinutes,
+              const startMinutes = clampMinutes(minutesSinceStartOfDay(event.start));
+              const eventEndDisplay = event.end ?? event.start.add({ minutes: timeStepMinutes });
+              const durationMinutes = Math.max(
+                Math.round(eventEndDisplay.since(event.start).total({ unit: "minutes" })),
+                timeStepMinutes,
               );
+              const endMinutes = Math.min(startMinutes + durationMinutes, CALENDAR_MINUTES);
               return endMinutes >= renderStart && startMinutes <= renderEnd;
             });
 
             const visibleAnchors = anchors.filter((anchor) => {
-              const minutes = clampMinutes(getMinutesSinceStartOfDay(anchor.zoned));
+              const minutes = clampMinutes(minutesSinceStartOfDay(anchor.zoned));
               return minutes >= renderStart && minutes <= renderEnd;
             });
 
@@ -515,34 +509,43 @@ export function Timeline({
                     </div>
                   ))}
 
-                  {brightStartMinutes !== null && brightEndMinutes !== null && brightEndMinutes > brightStartMinutes ? (
+                  {brightSegment ? (
                     <div
                       className="absolute inset-x-0 rounded-sm bg-amber-200/40"
                       style={{
-                        top: `${brightStartMinutes * PIXELS_PER_MINUTE}px`,
-                        height: `${(brightEndMinutes - brightStartMinutes) * PIXELS_PER_MINUTE}px`,
+                        top: `${brightSegment.top * PIXELS_PER_MINUTE}px`,
+                        height: `${brightSegment.height * PIXELS_PER_MINUTE}px`,
                         zIndex: 0,
                       }}
                     />
                   ) : null}
 
-                  {sleepEndMinutes > sleepStartMinutes ? (
+                  {sleepSegment ? (
                     <div
                       className="absolute inset-x-1 rounded-md bg-primary/10"
                       style={{
-                        top: `${sleepStartMinutes * PIXELS_PER_MINUTE}px`,
-                        height: `${(sleepEndMinutes - sleepStartMinutes) * PIXELS_PER_MINUTE}px`,
+                        top: `${sleepSegment.top * PIXELS_PER_MINUTE}px`,
+                        height: `${sleepSegment.height * PIXELS_PER_MINUTE}px`,
                         zIndex: 0,
                       }}
                     />
                   ) : null}
 
                   {visibleEvents.map((item) => {
-                    const startMinutes = clampMinutes(getMinutesSinceStartOfDay(item.start));
-                    const endMinutes = clampMinutes(
-                      item.end ? getMinutesSinceStartOfDay(item.end) : startMinutes + timeStepMinutes,
+                    const startMinutes = clampMinutes(minutesSinceStartOfDay(item.start));
+                    const eventEndDisplay = item.end ?? item.start.add({ minutes: timeStepMinutes });
+                    const rawDurationMinutes = Math.max(
+                      Math.round(eventEndDisplay.since(item.start).total({ unit: "minutes" })),
+                      timeStepMinutes,
                     );
-                    const durationMinutes = Math.max(endMinutes - startMinutes, timeStepMinutes);
+                    const cappedEndMinutes = Math.min(startMinutes + rawDurationMinutes, CALENDAR_MINUTES);
+                    const durationMinutes = Math.max(cappedEndMinutes - startMinutes, timeStepMinutes);
+                    const timeSuffix = item.end
+                      ? rangeDaySuffix(
+                          item.start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+                          item.end.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+                        )
+                      : "";
                     return (
                       <button
                         key={item.id}
@@ -570,7 +573,7 @@ export function Timeline({
                           {item.end
                             ? ` → ${item.end
                                 .toPlainTime()
-                                .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}`
+                                .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}${timeSuffix}`
                             : ""}
                         </div>
                         {item.end ? (
@@ -592,7 +595,7 @@ export function Timeline({
                   })}
 
                   {visibleAnchors.map((anchor) => {
-                    const minutes = clampMinutes(getMinutesSinceStartOfDay(anchor.zoned));
+                    const minutes = clampMinutes(minutesSinceStartOfDay(anchor.zoned));
                     const anchorKindLabel = anchor.kind === "wake" ? "Wake time" : "Sleep time";
                     return (
                       <button

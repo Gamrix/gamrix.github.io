@@ -3,8 +3,33 @@ import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
 import { ScheduleTable } from "./ScheduleTable";
-import { computePlan } from "@/scripts/projects/zoneshift/model";
+import { computePlan, type CorePlan } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
+
+const overnightPlan: CorePlan = {
+  ...sampleCorePlan,
+  params: {
+    ...sampleCorePlan.params,
+    homeZone: "UTC",
+    targetZone: "UTC",
+    startSleepUtc: "2024-01-01T22:00:00Z",
+  },
+  anchors: [],
+  events: [
+    {
+      id: "overnight-session",
+      title: "Overnight Session",
+      start: "2024-01-02T23:30:00Z",
+      end: "2024-01-03T02:00:00Z",
+      zone: "UTC",
+      colorHint: "blue",
+    },
+  ],
+  prefs: {
+    ...sampleCorePlan.prefs,
+    displayZone: "target",
+  },
+};
 
 describe("ScheduleTable", () => {
   it("renders one row per computed day", () => {
@@ -61,5 +86,16 @@ describe("ScheduleTable", () => {
     await user.click(anchorButtons[0]);
 
     await waitFor(() => expect(handleEdit).toHaveBeenCalledTimes(1));
+  });
+
+  it("annotates cross-day sleep and bright windows", () => {
+    const computed = computePlan(overnightPlan);
+
+    render(
+      <ScheduleTable computed={computed} displayZoneId={overnightPlan.params.targetZone} />,
+    );
+
+    expect(screen.getByText(/Sleep End/i).closest("table")).toHaveTextContent("(+1 day)");
+    expect(screen.getByText(/Bright Window/i).closest("table")).toHaveTextContent("(+1 day)");
   });
 });

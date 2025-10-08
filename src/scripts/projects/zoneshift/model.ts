@@ -65,8 +65,12 @@ export interface DayComputed {
   changeThisDayHours: number;
   sleepStartLocal: string;
   sleepEndLocal: string;
+  sleepStartZoned: string;
+  sleepEndZoned: string;
   brightStartLocal: string;
   brightEndLocal: string;
+  brightStartZoned: string;
+  brightEndZoned: string;
   wakeTimeLocal: string;
   anchors: DayAnchorInfo[];
 }
@@ -527,13 +531,34 @@ export function computePlan(core: CorePlan): ComputedView {
 
     perDayShifts.push(changeHours);
 
+    const sleepStartDisplayIso = sleepStartDisplay.toString({
+      smallestUnit: "minute",
+      fractionalSecondDigits: 0,
+    });
+    const sleepEndDisplayIso = wakeDisplay.toString({
+      smallestUnit: "minute",
+      fractionalSecondDigits: 0,
+    });
+    const brightStartDisplayIso = brightStartDisplay.toString({
+      smallestUnit: "minute",
+      fractionalSecondDigits: 0,
+    });
+    const brightEndDisplayIso = brightEndDisplay.toString({
+      smallestUnit: "minute",
+      fractionalSecondDigits: 0,
+    });
+
     days.push({
       dateTargetZone: key,
       changeThisDayHours: changeHours,
       sleepStartLocal: formatTime(sleepStartDisplay),
       sleepEndLocal: formatTime(wakeDisplay),
+      sleepStartZoned: sleepStartDisplayIso,
+      sleepEndZoned: sleepEndDisplayIso,
       brightStartLocal: formatTime(brightStartDisplay),
       brightEndLocal: formatTime(brightEndDisplay),
+      brightStartZoned: brightStartDisplayIso,
+      brightEndZoned: brightEndDisplayIso,
       wakeTimeLocal: formatTime(wakeDisplay),
       anchors: anchorMap.get(key)?.map((anchor) => ({ ...anchor })) ?? [],
     });
