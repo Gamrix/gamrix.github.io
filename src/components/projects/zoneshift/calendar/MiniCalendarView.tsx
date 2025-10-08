@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,17 @@ interface MiniEvent {
   summary: string;
 }
 
+interface MiniAnchor {
+  id: string;
+  minuteOffset: number;
+  label: string;
+}
+
 const MINUTES_IN_DAY = 24 * 60;
+const TIMELINE_HEIGHT = "min(26rem, 70vh)";
+const HEADER_HEIGHT = "2.5rem";
+const AXIS_WIDTH = "3.5rem";
+const TOTAL_HEIGHT = `calc(${TIMELINE_HEIGHT} + ${HEADER_HEIGHT})`;
 
 const parseLocalTime = (label: string) => {
   if (!label || label === "--:--") {
@@ -147,11 +157,31 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
         segments = applySegment(segments, brightStart, brightEnd, "bright");
       }
 
+      const wakeAnchors: MiniAnchor[] = day.anchors
+        .filter((anchor) => anchor.kind === "wake")
+        .map((anchor) => {
+          try {
+            const zdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
+            const minutes = getMinutesFromZdt(zdt);
+            return {
+              id: anchor.id,
+              minuteOffset: minutes,
+              label: zdt
+                .toPlainTime()
+                .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+            } satisfies MiniAnchor;
+          } catch (error) {
+            console.error("Failed to project wake anchor for mini calendar", anchor.id, error);
+            return null;
+          }
+        })
+        .filter((item): item is MiniAnchor => item !== null);
+
       const key = Temporal.PlainDate.from(day.dateTargetZone).toString();
       const events = eventsByDay.get(key) ?? [];
-      return { day, segments, events };
+      return { day, segments, events, wakeAnchors };
     });
-  }, [computed.days, eventsByDay]);
+  }, [computed.days, eventsByDay, displayZoneId]);
 
   const hourMarkers = useMemo(() => {
     const markers: number[] = [];
@@ -177,119 +207,139 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
           <span>All times shown in {displayZoneId}</span>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <div className="flex gap-4 pb-4">
-          {timelineByDay.map(({ day, segments, events }) => {
-            const isoDate = Temporal.PlainDate.from(day.dateTargetZone);
-            const weekday = isoDate.toLocaleString("en-US", { weekday: "short" });
-            const dateLabel = isoDate.toLocaleString("en-US", { month: "short", day: "numeric" });
-            const isExpanded = events.some((event) => event.id === expandedEventId);
-
-            return (
-              <div key={day.dateTargetZone} className="flex w-28 flex-col items-center gap-2">
-                <div className="text-center text-xs text-muted-foreground">
-                  <div className="font-semibold text-foreground">{weekday}</div>
-                  <div>{dateLabel}</div>
-                </div>
-                <div
-                  className="relative w-12 rounded-lg border border-border/80 bg-card px-3"
-                  style={{ height: "min(26rem, 70vh)" }}
-                >
-                  <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-muted" />
-                  {hourMarkers.map((hour) => {
-                    const minutes = hour * 60;
-                    const top = (minutes / MINUTES_IN_DAY) * 100;
-                    return (
-                      <div
-                        key={`${day.dateTargetZone}-grid-${hour}`}
-                        className="pointer-events-none absolute inset-x-1 border-t border-border/60"
-                        style={{ top: `${top}%` }}
-                      >
-                        <span className="absolute -right-12 -translate-y-1/2 text-[10px] text-muted-foreground">
-                          {String(hour).padStart(2, "0")}:00
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {segments.map((segment, index) => (
-                    <div
-                      key={`${segment.type}-${index}-${day.dateTargetZone}`}
-                      className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
-                      style={{
-                        top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
-                        height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
-                      }}
-                    />
-                  ))}
-
-                  {events.map((event) => {
-                    const minuteOffset = getMinutesFromZdt(event.start);
-                    return (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() =>
-                          setExpandedEventId((prev) => (prev === event.id ? null : event.id))
-                        }
-                        className={`absolute left-1/2 z-20 h-2 w-2 -translate-x-1/2 rounded-full border border-card shadow-sm ${
-                          expandedEventId === event.id ? "bg-primary" : "bg-foreground"
-                        } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
-                        style={{ top: `calc(${(minuteOffset / MINUTES_IN_DAY) * 100}% - 4px)` }}
-                        aria-label={`Toggle ${event.title}`}
-                      />
-                    );
-                  })}
-                </div>
-
-                <div className="flex w-full flex-col gap-1 text-xs">
-                  {events.length === 0 ? (
-                    <span className="text-center text-muted-foreground">No events</span>
-                  ) : (
-                    events.map((event) => (
-                      <Button
-                        key={event.id}
-                        type="button"
-                        variant={expandedEventId === event.id ? "default" : "outline"}
-                        size="sm"
-                        className="justify-between text-[11px]"
-                        onClick={() =>
-                          setExpandedEventId((prev) => (prev === event.id ? null : event.id))
-                        }
-                      >
-                        <span className="truncate text-left font-medium">{event.title}</span>
-                        <span className="ml-2 text-muted-foreground">{event.summary}</span>
-                      </Button>
-                    ))
-                  )}
-                </div>
-
-                {isExpanded ? (
-                  <div className="w-full rounded-lg border bg-card/80 p-2 text-xs shadow-sm">
-                    {events
-                      .filter((event) => event.id === expandedEventId)
-                      .map((event) => (
-                        <div key={event.id} className="space-y-2">
-                          <div>
-                            <h4 className="text-sm font-semibold text-foreground">{event.title}</h4>
-                            <p className="text-muted-foreground">{event.summary}</p>
-                          </div>
-                          {onEditEvent ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onEditEvent(event.id)}
-                            >
-                              Edit event
-                            </Button>
-                          ) : null}
-                        </div>
-                      ))}
+      <div className="rounded-lg border bg-card/80 p-3 shadow-sm">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `${AXIS_WIDTH} 1fr`, height: TOTAL_HEIGHT }}
+        >
+          <div
+            className="flex flex-col items-end text-[10px] text-muted-foreground"
+            style={{ width: AXIS_WIDTH, height: TOTAL_HEIGHT }}
+          >
+            <div className="h-10" />
+            <div className="relative w-full" style={{ height: TIMELINE_HEIGHT }}>
+              {hourMarkers.map((hour) => {
+                const minutes = hour * 60;
+                const topPercent = (minutes / MINUTES_IN_DAY) * 100;
+                return (
+                  <div
+                    key={`axis-${hour}`}
+                    className="absolute right-0 flex -translate-y-1/2 items-center gap-1"
+                    style={{ top: `${topPercent}%` }}
+                  >
+                    <div className="h-px w-4 bg-border/70" />
+                    <span>{String(hour).padStart(2, "0")}:00</span>
                   </div>
-                ) : null}
+                );
+              })}
+            </div>
+          </div>
+          <div className="relative" style={{ height: TOTAL_HEIGHT }}>
+            <div
+              className="pointer-events-none absolute left-0 right-0"
+              style={{ top: HEADER_HEIGHT, bottom: 0 }}
+            >
+              {hourMarkers.map((hour) => {
+                const minutes = hour * 60;
+                const topPercent = (minutes / MINUTES_IN_DAY) * 100;
+                return (
+                  <div
+                    key={`grid-${hour}`}
+                    className="absolute left-0 right-0 border-t border-border/50"
+                    style={{ top: `${topPercent}%` }}
+                  />
+                );
+              })}
+            </div>
+            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-x-auto">
+              <div className="flex h-full gap-4">
+                {timelineByDay.map(({ day, segments, events, wakeAnchors }) => {
+                  const isoDate = Temporal.PlainDate.from(day.dateTargetZone);
+                  const weekday = isoDate.toLocaleString("en-US", { weekday: "short" });
+                  const dateLabel = isoDate.toLocaleString("en-US", { month: "short", day: "numeric" });
+
+                  return (
+                    <div key={day.dateTargetZone} className="relative h-full w-28">
+                      <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+                        <div className="font-semibold text-foreground">{weekday}</div>
+                        <div>{dateLabel}</div>
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 top-10">
+                        <div className="relative h-full w-full overflow-visible rounded-lg border border-border/80 bg-card">
+                          <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
+                          {segments.map((segment, index) => (
+                            <div
+                              key={`${segment.type}-${index}-${day.dateTargetZone}`}
+                              className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
+                              style={{
+                                top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
+                                height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
+                              }}
+                            />
+                          ))}
+
+                          {wakeAnchors.map((anchor) => (
+                            <div
+                              key={anchor.id}
+                              className="absolute left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 text-[10px] font-medium text-emerald-500"
+                              style={{ top: `${(anchor.minuteOffset / MINUTES_IN_DAY) * 100}%` }}
+                            >
+                              <div className="flex -translate-y-1 items-center gap-2">
+                                <div className="h-4 w-4 rounded-full border-2 border-emerald-400 bg-card shadow-sm" />
+                                <span>{anchor.label}</span>
+                              </div>
+                            </div>
+                          ))}
+
+                          {events.map((event) => {
+                            const minuteOffset = getMinutesFromZdt(event.start);
+                            const topPercent = (minuteOffset / MINUTES_IN_DAY) * 100;
+                            const isActive = expandedEventId === event.id;
+
+                            return (
+                              <Fragment key={event.id}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedEventId((prev) => (prev === event.id ? null : event.id))
+                                  }
+                                  className={`absolute left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full border border-card shadow-sm ${
+                                    isActive ? "bg-primary" : "bg-foreground"
+                                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
+                                  style={{ top: `calc(${topPercent}% - 8px)` }}
+                                  aria-label={`Toggle ${event.title}`}
+                                />
+                                {isActive ? (
+                                  <div
+                                    className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
+                                    style={{ top: `calc(${topPercent}% - 12px)` }}
+                                  >
+                                    <div className="font-semibold text-foreground">{event.title}</div>
+                                    <p className="text-muted-foreground">{event.summary}</p>
+                                    {onEditEvent ? (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="mt-2"
+                                        onClick={() => onEditEvent(event.id)}
+                                      >
+                                        Edit event
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </Fragment>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

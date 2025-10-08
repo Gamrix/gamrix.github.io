@@ -11,12 +11,11 @@ This mini calendar view is designed specifically for narrow phone-sized layouts 
 - Colours mirror the broader Zoneshift palette to preserve mental models between views, and the neutral baseline ensures high contrast when states change hour-to-hour.
 
 ## Temporal Landmarks
-- Horizontal guide lines mark every four hours so the entire day can be read at a glance, even on a phone screen. Labels sit just outside the column to reduce clutter while still providing an explicit reference for midnight, early-morning wake-ups, mid-day commitments, and late-night flights.
+- A single shared axis with horizontal guide lines marks every four hours so the entire week can be read at a glance, even on a phone screen. Labels sit just outside the day columns to reduce clutter while still providing an explicit reference for midnight, early-morning wake-ups, mid-day commitments, and late-night flights.
 
 ## Event Discovery & Interaction
-- Event start times become tappable markers along the line, providing a spatial cue before engaging with text. The marker also doubles as a button to expand event details.
-- A compact list of event buttons sits directly beneath each day. It offers an alternative enlargement target for accessibility and shows the formatted time range, reducing the need to open each event just to confirm timing.
-- Expanded event cards reuse the generic button component so “Edit event” remains discoverable for power users without introducing bespoke controls.
+- Event start times become tappable markers along the line, providing a spatial cue before engaging with text. The marker now doubles as a trigger for a contextual bubble that opens directly above it.
+- The bubble surfaces the title, time range, and quick actions without obscuring neighbouring days, and reuses the generic button component so “Edit event” remains discoverable for power users.
 
 ## Mobile Ergonomics
 - Touch targets (markers and list buttons) receive focus-visible rings for keyboard users and meet minimum 32px sizing once padding is accounted for.
