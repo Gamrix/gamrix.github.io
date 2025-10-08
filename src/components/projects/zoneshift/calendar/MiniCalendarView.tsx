@@ -8,6 +8,7 @@ interface MiniCalendarViewProps {
   computed: ComputedView;
   displayZoneId: string;
   onEditEvent?: (eventId: string) => void;
+  onOpenPlanSettings?: () => void;
 }
 
 type SegmentType = "sleep" | "bright" | "other";
@@ -35,7 +36,7 @@ interface MiniAnchor {
 const MINUTES_IN_DAY = 24 * 60;
 const TIMELINE_HEIGHT = "min(26rem, 70vh)";
 const HEADER_HEIGHT = "2.5rem";
-const AXIS_WIDTH = "3.5rem";
+const AXIS_WIDTH = "clamp(2.25rem, 12vw, 3.5rem)";
 const TOTAL_HEIGHT = `calc(${TIMELINE_HEIGHT} + ${HEADER_HEIGHT})`;
 
 const parseLocalTime = (label: string) => {
@@ -110,8 +111,14 @@ const colourForSegment = (type: SegmentType) => {
 const formatEventTime = (value: Temporal.ZonedDateTime) =>
   value.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
-export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniCalendarViewProps) {
+export function MiniCalendarView({
+  computed,
+  displayZoneId,
+  onEditEvent,
+  onOpenPlanSettings,
+}: MiniCalendarViewProps) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, MiniEvent[]>();
@@ -185,7 +192,7 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
 
   const hourMarkers = useMemo(() => {
     const markers: number[] = [];
-    for (let hour = 0; hour <= 24; hour += 4) {
+    for (let hour = 0; hour <= 24; hour += 2) {
       markers.push(hour);
     }
     return markers;
@@ -199,12 +206,57 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
     );
   }
 
+  const DAYS_PER_PAGE = 7;
+  const startIndex = pageIndex * DAYS_PER_PAGE;
+  const visibleTimeline = timelineByDay.slice(startIndex, startIndex + DAYS_PER_PAGE);
+  const hasPrevious = startIndex > 0;
+  const hasNext = startIndex + DAYS_PER_PAGE < timelineByDay.length;
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg border bg-card/70 p-3 shadow-sm">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span className="font-semibold uppercase tracking-[0.18em]">Mini calendar</span>
-          <span>All times shown in {displayZoneId}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold uppercase tracking-[0.18em]">Mini calendar</span>
+            <span className="text-muted-foreground">All times in {displayZoneId}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {onOpenPlanSettings ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs"
+                onClick={onOpenPlanSettings}
+              >
+                Edit plan settings
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={() => setPageIndex((prev) => Math.max(prev - 1, 0))}
+              disabled={!hasPrevious}
+            >
+              Prev 7 days
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={() =>
+                setPageIndex((prev) =>
+                  hasNext ? Math.min(prev + 1, Math.ceil(timelineByDay.length / DAYS_PER_PAGE) - 1) : prev,
+                )
+              }
+              disabled={!hasNext}
+            >
+              Next 7 days
+            </Button>
+          </div>
         </div>
       </div>
       <div className="rounded-lg border bg-card/80 p-3 shadow-sm">
@@ -214,7 +266,7 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
         >
           <div
             className="flex flex-col items-end text-[10px] text-muted-foreground"
-            style={{ width: AXIS_WIDTH, height: TOTAL_HEIGHT }}
+            style={{ width: AXIS_WIDTH, minWidth: AXIS_WIDTH, height: TOTAL_HEIGHT }}
           >
             <div className="h-10" />
             <div className="relative w-full" style={{ height: TIMELINE_HEIGHT }}>
@@ -228,7 +280,9 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
                     style={{ top: `${topPercent}%` }}
                   >
                     <div className="h-px w-4 bg-border/70" />
-                    <span>{String(hour).padStart(2, "0")}:00</span>
+                    {hour % 4 === 0 ? (
+                      <span>{String(hour).padStart(2, "0")}:00</span>
+                    ) : null}
                   </div>
                 );
               })}
@@ -251,92 +305,94 @@ export function MiniCalendarView({ computed, displayZoneId, onEditEvent }: MiniC
                 );
               })}
             </div>
-            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-x-auto">
-              <div className="flex h-full gap-4">
-                {timelineByDay.map(({ day, segments, events, wakeAnchors }) => {
-                  const isoDate = Temporal.PlainDate.from(day.dateTargetZone);
-                  const weekday = isoDate.toLocaleString("en-US", { weekday: "short" });
-                  const dateLabel = isoDate.toLocaleString("en-US", { month: "short", day: "numeric" });
+            <div className="absolute left-0 right-0 top-0 bottom-0 flex flex-col">
+              <div className="flex-1 overflow-x-auto pt-2">
+                <div className="flex h-full gap-4">
+                  {visibleTimeline.map(({ day, segments, events, wakeAnchors }) => {
+                    const isoDate = Temporal.PlainDate.from(day.dateTargetZone);
+                    const weekday = isoDate.toLocaleString("en-US", { weekday: "short" });
+                    const dateLabel = isoDate.toLocaleString("en-US", { month: "short", day: "numeric" });
 
-                  return (
-                    <div key={day.dateTargetZone} className="relative h-full w-28">
-                      <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
-                        <div className="font-semibold text-foreground">{weekday}</div>
-                        <div>{dateLabel}</div>
-                      </div>
-                      <div className="absolute inset-x-0 bottom-0 top-10">
-                        <div className="relative h-full w-full overflow-visible rounded-lg border border-border/80 bg-card">
-                          <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
-                          {segments.map((segment, index) => (
-                            <div
-                              key={`${segment.type}-${index}-${day.dateTargetZone}`}
-                              className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
-                              style={{
-                                top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
-                                height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
-                              }}
-                            />
-                          ))}
+                    return (
+                      <div key={day.dateTargetZone} className="relative h-full w-28">
+                        <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+                          <div className="font-semibold text-foreground">{weekday}</div>
+                          <div>{dateLabel}</div>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 top-10">
+                          <div className="relative h-full w-full overflow-visible">
+                            <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
+                            {segments.map((segment, index) => (
+                              <div
+                                key={`${segment.type}-${index}-${day.dateTargetZone}`}
+                                className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
+                                style={{
+                                  top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
+                                  height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
+                                }}
+                              />
+                            ))}
 
-                          {wakeAnchors.map((anchor) => (
-                            <div
-                              key={anchor.id}
-                              className="absolute left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 text-[10px] font-medium text-emerald-500"
-                              style={{ top: `${(anchor.minuteOffset / MINUTES_IN_DAY) * 100}%` }}
-                            >
-                              <div className="flex -translate-y-1 items-center gap-2">
-                                <div className="h-4 w-4 rounded-full border-2 border-emerald-400 bg-card shadow-sm" />
-                                <span>{anchor.label}</span>
+                            {wakeAnchors.map((anchor) => (
+                              <div
+                                key={anchor.id}
+                                className="absolute left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 text-[10px] font-medium text-emerald-500"
+                                style={{ top: `${(anchor.minuteOffset / MINUTES_IN_DAY) * 100}%` }}
+                              >
+                                <div className="flex -translate-y-1 items-center gap-2">
+                                  <div className="h-4 w-4 rounded-full border-2 border-emerald-400 bg-card shadow-sm" />
+                                  <span>{anchor.label}</span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
 
-                          {events.map((event) => {
-                            const minuteOffset = getMinutesFromZdt(event.start);
-                            const topPercent = (minuteOffset / MINUTES_IN_DAY) * 100;
-                            const isActive = expandedEventId === event.id;
+                            {events.map((event) => {
+                              const minuteOffset = getMinutesFromZdt(event.start);
+                              const topPercent = (minuteOffset / MINUTES_IN_DAY) * 100;
+                              const isActive = expandedEventId === event.id;
 
-                            return (
-                              <Fragment key={event.id}>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedEventId((prev) => (prev === event.id ? null : event.id))
-                                  }
-                                  className={`absolute left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full border border-card shadow-sm ${
-                                    isActive ? "bg-primary" : "bg-foreground"
-                                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
-                                  style={{ top: `calc(${topPercent}% - 8px)` }}
-                                  aria-label={`Toggle ${event.title}`}
-                                />
-                                {isActive ? (
-                                  <div
-                                    className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
-                                    style={{ top: `calc(${topPercent}% - 12px)` }}
-                                  >
-                                    <div className="font-semibold text-foreground">{event.title}</div>
-                                    <p className="text-muted-foreground">{event.summary}</p>
-                                    {onEditEvent ? (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        className="mt-2"
-                                        onClick={() => onEditEvent(event.id)}
-                                      >
-                                        Edit event
-                                      </Button>
-                                    ) : null}
-                                  </div>
-                                ) : null}
-                              </Fragment>
-                            );
-                          })}
+                              return (
+                                <Fragment key={event.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedEventId((prev) => (prev === event.id ? null : event.id))
+                                    }
+                                    className={`absolute left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full border border-card shadow-sm ${
+                                      isActive ? "bg-primary" : "bg-foreground"
+                                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
+                                    style={{ top: `calc(${topPercent}% - 8px)` }}
+                                    aria-label={`Toggle ${event.title}`}
+                                  />
+                                  {isActive ? (
+                                    <div
+                                      className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
+                                      style={{ top: `calc(${topPercent}% - 12px)` }}
+                                    >
+                                      <div className="font-semibold text-foreground">{event.title}</div>
+                                      <p className="text-muted-foreground">{event.summary}</p>
+                                      {onEditEvent ? (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          className="mt-2"
+                                          onClick={() => onEditEvent(event.id)}
+                                        >
+                                          Edit event
+                                        </Button>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </Fragment>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>

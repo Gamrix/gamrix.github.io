@@ -8,7 +8,7 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    expect(screen.getByText("Asia/Taipei")).toBeInTheDocument();
+    expect(screen.getByText(/Asia\/Taipei/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("button", { name: "Home Zone" }));
