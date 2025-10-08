@@ -9,6 +9,12 @@ import { ScheduleTable } from "./ScheduleTable";
 import { CalendarView } from "./calendar/CalendarView";
 import { CalendarListView } from "./calendar/CalendarListView";
 import { MiniCalendarView } from "./calendar/MiniCalendarView";
+import { ImportExport } from "./toolbar/ImportExport";
+import {
+  loadPlanFromStorage,
+  normalizePlan,
+  persistPlanToStorage,
+} from "./planPersistence";
 
 const VIEW_LABEL: Record<"home" | "target", string> = {
   home: "Home Zone",
@@ -77,7 +83,7 @@ const ProjectedEvents = ({
 };
 
 function ZoneShiftDemoComponent() {
-  const [planState, setPlanState] = useState<CorePlan>(() => sampleCorePlan);
+  const [planState, setPlanState] = useState<CorePlan>(() => loadPlanFromStorage(sampleCorePlan));
   const displayZone = planState.prefs?.displayZone ?? "target";
   const [viewMode, setViewMode] = useState<DemoViewMode>("calendar");
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
@@ -131,6 +137,10 @@ function ZoneShiftDemoComponent() {
       prefs: { ...(prev.prefs ?? {}), displayZone: zone },
     }));
   };
+
+  useEffect(() => {
+    persistPlanToStorage(planState);
+  }, [planState]);
 
   const handleAnchorFieldChange = (field: "date" | "time" | "note", value: string) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
@@ -273,6 +283,18 @@ function ZoneShiftDemoComponent() {
     setFormError(null);
   };
 
+  const handleImportPlan = (plan: CorePlan) => {
+    setPlanState(normalizePlan(plan));
+    setActiveAnchorId(null);
+  };
+
+  const handleResetPlan = () => {
+    setPlanState(normalizePlan(sampleCorePlan));
+    setActiveAnchorId(null);
+  };
+
+  const handleExportPlan = () => JSON.stringify(normalizePlan(planState), null, 2);
+
   return (
     <section className="space-y-10">
       <header className="flex flex-col gap-6 rounded-xl border bg-card/60 p-8 shadow-sm backdrop-blur">
@@ -340,6 +362,14 @@ function ZoneShiftDemoComponent() {
           </div>
         </dl>
       </header>
+
+      <div className="max-w-xl">
+        <ImportExport
+          onImport={handleImportPlan}
+          onReset={handleResetPlan}
+          exportPlan={handleExportPlan}
+        />
+      </div>
 
       {viewMode === "calendar" ? (
         <CalendarListView

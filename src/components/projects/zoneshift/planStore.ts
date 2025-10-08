@@ -10,6 +10,11 @@ import {
   computePlan,
 } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
+import {
+  loadPlanFromStorage,
+  normalizePlan,
+  persistPlanToStorage,
+} from "./planPersistence";
 
 export type ViewMode = "calendar" | "timeline" | "mini" | "table";
 
@@ -20,49 +25,8 @@ interface PlanStoreState {
   activeAnchorId: string | null;
 }
 
-const STORAGE_KEY = "zoneshift-core-plan";
-
-const loadPlan = (): CorePlan => {
-  if (typeof window === "undefined") {
-    return sampleCorePlan;
-  }
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return sampleCorePlan;
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return CorePlanSchema.parse(parsed);
-  } catch (error) {
-    console.error("Failed to load plan from storage", error);
-    return sampleCorePlan;
-  }
-};
-
-const persistPlan = (plan: CorePlan) => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(plan));
-  } catch (error) {
-    console.error("Failed to persist plan", error);
-  }
-};
-
-const normalizePlan = (plan: CorePlan): CorePlan => {
-  const prefs = plan.prefs ?? {};
-  return {
-    ...plan,
-    prefs: {
-      displayZone: prefs.displayZone ?? "target",
-      timeStepMinutes: prefs.timeStepMinutes ?? 30,
-    },
-  };
-};
-
 let state: PlanStoreState = {
-  plan: normalizePlan(loadPlan()),
+  plan: loadPlanFromStorage(sampleCorePlan),
   viewMode: "calendar",
   activeEventId: null,
   activeAnchorId: null,
@@ -80,7 +44,7 @@ const setState = (updater: (prev: PlanStoreState) => PlanStoreState) => {
     return;
   }
   state = next;
-  persistPlan(state.plan);
+  persistPlanToStorage(state.plan);
   emit();
 };
 
