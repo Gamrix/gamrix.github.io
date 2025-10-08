@@ -21,9 +21,6 @@ const VIEW_LABEL: Record<"home" | "target", string> = {
   target: "Target Zone",
 };
 
-const formatZoneLabel = (plan: CorePlan, key: "home" | "target") =>
-  key === "home" ? plan.params.homeZone : plan.params.targetZone;
-
 type DemoViewMode = "calendar" | "timeline" | "mini" | "table";
 
 const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
@@ -31,11 +28,6 @@ const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
   timeline: "Calendar View",
   mini: "Mini View",
   table: "Table View",
-};
-
-const formatOffset = (hours: number) => {
-  const sign = hours >= 0 ? "+" : "";
-  return `${sign}${hours.toFixed(1).replace(/\.0$/, "")}h`;
 };
 
 const formatProjectedTime = (value: string) => {
@@ -94,8 +86,6 @@ function ZoneShiftDemoComponent() {
 
   const displayZoneId =
     displayZone === "home" ? planState.params.homeZone : planState.params.targetZone;
-  const meta = computed.meta;
-  const activeZoneLabel = formatZoneLabel(planState, displayZone);
 
   const activeAnchor = useMemo(
     () => planState.anchors.find((anchor) => anchor.id === activeAnchorId) ?? null,
@@ -297,19 +287,13 @@ function ZoneShiftDemoComponent() {
 
   return (
     <section className="space-y-10">
-      <header className="flex flex-col gap-6 rounded-xl border bg-card/60 p-8 shadow-sm backdrop-blur">
-        <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Plan Summary
-            </p>
-            <h2 className="text-2xl font-semibold tracking-tight">Zoneshift Alignment Preview</h2>
-          </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Display zone
-            </span>
+      <header className="rounded-xl border bg-card/60 p-8 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                Display zone
+              </span>
               <div className="flex gap-2">
                 {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
                   <Button
@@ -323,11 +307,11 @@ function ZoneShiftDemoComponent() {
                     {VIEW_LABEL[option]}
                   </Button>
                 ))}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">View</span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">View</span>
+              <div className="flex gap-2">
                 {(Object.keys(DEMO_VIEW_LABEL) as DemoViewMode[]).map((mode) => (
                   <Button
                     key={mode}
@@ -350,23 +334,6 @@ function ZoneShiftDemoComponent() {
             className="items-end text-right"
           />
         </div>
-
-        <dl className="grid gap-6 text-sm text-muted-foreground md:grid-cols-3">
-          <div>
-            <dt className="uppercase tracking-[0.16em]">Total Delta</dt>
-            <dd className="text-lg font-medium text-foreground">
-              {formatOffset(meta.totalDeltaHours)}
-            </dd>
-          </div>
-          <div>
-            <dt className="uppercase tracking-[0.16em]">Shift Strategy</dt>
-            <dd className="text-lg font-medium text-foreground">{meta.direction}</dd>
-          </div>
-          <div>
-            <dt className="uppercase tracking-[0.16em]">Viewing Zone</dt>
-            <dd className="text-lg font-medium text-foreground">{activeZoneLabel}</dd>
-          </div>
-        </dl>
       </header>
 
       {viewMode === "calendar" ? (
