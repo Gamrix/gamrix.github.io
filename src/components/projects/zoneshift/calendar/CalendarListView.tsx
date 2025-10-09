@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
-import type { ComputedView, CorePlan } from "@/scripts/projects/zoneshift/model";
+import type {
+  ComputedView,
+  CorePlan,
+} from "@/scripts/projects/zoneshift/model";
 import { formatRangeLabel } from "../utils/timeSegments";
 
 interface CalendarListViewProps {
@@ -35,22 +38,33 @@ export function CalendarListView({
   onEditEvent,
   onEditAnchor,
 }: CalendarListViewProps) {
-  const editableAnchorIds = useMemo(() => new Set(plan.anchors.map((anchor) => anchor.id)), [plan.anchors]);
+  const editableAnchorIds = useMemo(
+    () => new Set(plan.anchors.map((anchor) => anchor.id)),
+    [plan.anchors]
+  );
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, CalendarEvent[]>();
     computed.projectedEvents.forEach((event) => {
       try {
-        const start = Temporal.ZonedDateTime.from(event.startZoned).withTimeZone(displayZoneId);
+        const start = Temporal.ZonedDateTime.from(
+          event.startZoned
+        ).withTimeZone(displayZoneId);
         const end = event.endZoned
-          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(displayZoneId)
+          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(
+              displayZoneId
+            )
           : undefined;
         const key = start.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
         bucket.push({ id: event.id, title: event.title, start, end });
         mapping.set(key, bucket);
       } catch (error) {
-        console.error("Failed to project event for calendar list", event.id, error);
+        console.error(
+          "Failed to project event for calendar list",
+          event.id,
+          error
+        );
       }
     });
 
@@ -65,7 +79,9 @@ export function CalendarListView({
     const mapping = new Map<string, CalendarAnchor[]>();
     computed.projectedAnchors.forEach((anchor) => {
       try {
-        const zoned = Temporal.ZonedDateTime.from(anchor.zonedDateTime).withTimeZone(displayZoneId);
+        const zoned = Temporal.ZonedDateTime.from(
+          anchor.zonedDateTime
+        ).withTimeZone(displayZoneId);
         const key = zoned.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
         bucket.push({
@@ -77,7 +93,11 @@ export function CalendarListView({
         });
         mapping.set(key, bucket);
       } catch (error) {
-        console.error("Failed to project anchor for calendar list", anchor.id, error);
+        console.error(
+          "Failed to project anchor for calendar list",
+          anchor.id,
+          error
+        );
       }
     });
 
@@ -103,8 +123,13 @@ export function CalendarListView({
         const dayKey = dayInDisplayZone.toPlainDate().toString();
         const events = eventsByDay.get(dayKey) ?? [];
         const anchors = anchorsByDay.get(dayKey) ?? [];
-        const weekday = dayInDisplayZone.toLocaleString("en-US", { weekday: "short" });
-        const dateLabel = dayInDisplayZone.toLocaleString("en-US", { month: "short", day: "numeric" });
+        const weekday = dayInDisplayZone.toLocaleString("en-US", {
+          weekday: "short",
+        });
+        const dateLabel = dayInDisplayZone.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
 
         return (
           <article
@@ -125,7 +150,9 @@ export function CalendarListView({
               </div>
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Wake</dt>
-                <dd className="font-medium text-foreground">{day.wakeTimeLocal}</dd>
+                <dd className="font-medium text-foreground">
+                  {day.wakeTimeLocal}
+                </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Bright</dt>
@@ -140,7 +167,9 @@ export function CalendarListView({
                 Wake Times
               </h3>
               {anchors.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No wake times scheduled.</p>
+                <p className="text-xs text-muted-foreground">
+                  No wake times scheduled.
+                </p>
               ) : (
                 anchors.map((anchor) => (
                   <Button
@@ -156,10 +185,15 @@ export function CalendarListView({
                       {anchor.kind === "wake" ? "Wake time" : "Sleep time"} @
                       {anchor.zoned
                         .toPlainTime()
-                        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}
+                        .toString({
+                          smallestUnit: "minute",
+                          fractionalSecondDigits: 0,
+                        })}
                     </span>
                     {anchor.note ? (
-                      <span className="ml-2 truncate text-xs text-muted-foreground">{anchor.note}</span>
+                      <span className="ml-2 truncate text-xs text-muted-foreground">
+                        {anchor.note}
+                      </span>
                     ) : null}
                   </Button>
                 ))
@@ -167,24 +201,40 @@ export function CalendarListView({
             </section>
 
             <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Events</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Events
+              </h3>
               {events.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No events scheduled.</p>
+                <p className="text-xs text-muted-foreground">
+                  No events scheduled.
+                </p>
               ) : (
                 events.map((event) => {
                   const startLabel = event.start
                     .toPlainTime()
-                    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+                    .toString({
+                      smallestUnit: "minute",
+                      fractionalSecondDigits: 0,
+                    });
                   const endLabel = event.end
                     ? event.end
                         .toPlainTime()
-                        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
+                        .toString({
+                          smallestUnit: "minute",
+                          fractionalSecondDigits: 0,
+                        })
                     : null;
                   const rangeLabel = endLabel
                     ? formatRangeLabel(
-                        event.start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-                        event.end.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-                        { separator: " → " },
+                        event.start.toString({
+                          smallestUnit: "minute",
+                          fractionalSecondDigits: 0,
+                        }),
+                        event.end.toString({
+                          smallestUnit: "minute",
+                          fractionalSecondDigits: 0,
+                        }),
+                        { separator: " → " }
                       )
                     : startLabel;
                   return (
@@ -197,8 +247,12 @@ export function CalendarListView({
                       onClick={() => onEditEvent(event.id)}
                     >
                       <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{event.title}</span>
-                        <span className="text-xs text-muted-foreground">{rangeLabel}</span>
+                        <span className="font-medium text-foreground">
+                          {event.title}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {rangeLabel}
+                        </span>
                       </div>
                     </Button>
                   );

@@ -1,7 +1,10 @@
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { CorePlanSchema, type CorePlan } from "@/scripts/projects/zoneshift/model";
+import {
+  CorePlanSchema,
+  type CorePlan,
+} from "@/scripts/projects/zoneshift/model";
 
 interface ImportExportProps {
   onImport: (plan: CorePlan) => void;
@@ -35,7 +38,12 @@ const decodePlanFromHash = (): CorePlan | null => {
   }
 };
 
-export function ImportExport({ onImport, onReset, exportPlan, className }: ImportExportProps) {
+export function ImportExport({
+  onImport,
+  onReset,
+  exportPlan,
+  className,
+}: ImportExportProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -73,7 +81,9 @@ export function ImportExport({ onImport, onReset, exportPlan, className }: Impor
     setStatus("Updated URL hash with plan payload");
   };
 
-  const handleImportFile: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+  const handleImportFile: React.ChangeEventHandler<HTMLInputElement> = async (
+    event
+  ) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -91,7 +101,9 @@ export function ImportExport({ onImport, onReset, exportPlan, className }: Impor
     }
   };
 
-  const containerClass = className ? `flex flex-col gap-1 ${className}` : "flex flex-col gap-1";
+  const containerClass = className
+    ? `flex flex-col gap-1 ${className}`
+    : "flex flex-col gap-1";
 
   return (
     <div className={containerClass}>
@@ -99,7 +111,12 @@ export function ImportExport({ onImport, onReset, exportPlan, className }: Impor
         <Button type="button" size="sm" onClick={handleExport}>
           Export JSON
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={triggerFileDialog}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={triggerFileDialog}
+        >
           Import JSON
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={handleShare}>

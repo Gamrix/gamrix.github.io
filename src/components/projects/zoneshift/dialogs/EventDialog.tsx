@@ -23,7 +23,9 @@ interface EventDialogProps {
 
 const toLocalValue = (instantIso: string, zone: string) => {
   const zdt = Temporal.Instant.from(instantIso).toZonedDateTimeISO(zone);
-  return zdt.toPlainDateTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+  return zdt
+    .toPlainDateTime()
+    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 };
 
 const fromLocalValue = (value: string, zone: string) => {
@@ -40,7 +42,14 @@ const fromLocalValue = (value: string, zone: string) => {
     .toString();
 };
 
-export function EventDialog({ plan, event, open, onClose, onUpdate, onRemove }: EventDialogProps) {
+export function EventDialog({
+  plan,
+  event,
+  open,
+  onClose,
+  onUpdate,
+  onRemove,
+}: EventDialogProps) {
   const [title, setTitle] = useState("");
   const [zone, setZone] = useState(plan.params.targetZone);
   const [start, setStart] = useState("");
@@ -94,7 +103,9 @@ export function EventDialog({ plan, event, open, onClose, onUpdate, onRemove }: 
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
             <DialogTitle>Edit event</DialogTitle>
-            <DialogDescription>Adjust the activity timing in its native timezone.</DialogDescription>
+            <DialogDescription>
+              Adjust the activity timing in its native timezone.
+            </DialogDescription>
           </DialogHeader>
 
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -168,7 +179,12 @@ export function EventDialog({ plan, event, open, onClose, onUpdate, onRemove }: 
             <Button type="button" variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={removeEvent}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={removeEvent}
+            >
               Remove event
             </Button>
           </DialogFooter>

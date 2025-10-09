@@ -38,7 +38,7 @@ describe("ScheduleTable", () => {
       <ScheduleTable
         computed={computed}
         displayZoneId={sampleCorePlan.params.targetZone}
-      />,
+      />
     );
 
     const table = screen.getByRole("table", {
@@ -61,11 +61,13 @@ describe("ScheduleTable", () => {
           meta: { totalDeltaHours: 0, direction: "later", perDayShifts: [] },
         }}
         displayZoneId={sampleCorePlan.params.targetZone}
-      />,
+      />
     );
 
     expect(
-      screen.getByText(/Schedule data becomes available once you provide core plan details./i),
+      screen.getByText(
+        /Schedule data becomes available once you provide core plan details./i
+      )
     ).toBeInTheDocument();
   });
 
@@ -79,10 +81,12 @@ describe("ScheduleTable", () => {
         computed={computed}
         displayZoneId={sampleCorePlan.params.targetZone}
         onEditAnchor={handleEdit}
-      />,
+      />
     );
 
-    const anchorButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    const anchorButtons = await screen.findAllByRole("button", {
+      name: /Wake time/i,
+    });
     await user.click(anchorButtons[0]);
 
     await waitFor(() => expect(handleEdit).toHaveBeenCalledTimes(1));
@@ -92,10 +96,17 @@ describe("ScheduleTable", () => {
     const computed = computePlan(overnightPlan);
 
     render(
-      <ScheduleTable computed={computed} displayZoneId={overnightPlan.params.targetZone} />,
+      <ScheduleTable
+        computed={computed}
+        displayZoneId={overnightPlan.params.targetZone}
+      />
     );
 
-    expect(screen.getByText(/Sleep End/i).closest("table")).toHaveTextContent("(+1 day)");
-    expect(screen.getByText(/Bright Window/i).closest("table")).toHaveTextContent("(+1 day)");
+    expect(screen.getByText(/Sleep End/i).closest("table")).toHaveTextContent(
+      "(+1 day)"
+    );
+    expect(
+      screen.getByText(/Bright Window/i).closest("table")
+    ).toHaveTextContent("(+1 day)");
   });
 });

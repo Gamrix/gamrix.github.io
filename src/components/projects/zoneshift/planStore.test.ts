@@ -36,13 +36,15 @@ describe("planStore", () => {
     expect(eventId).toBeDefined();
     if (!eventId) return;
 
-    const computed = Temporal.Instant.from(plan.events[0]!.start).toZonedDateTimeISO(plan.events[0]!.zone);
+    const computed = Temporal.Instant.from(
+      plan.events[0]!.start
+    ).toZonedDateTimeISO(plan.events[0]!.zone);
     const start = computed.add({ minutes: 37 });
 
     planActions.moveEvent(
       eventId,
       { start, zone: plan.events[0]!.zone },
-      plan.prefs?.timeStepMinutes ?? 30,
+      plan.prefs?.timeStepMinutes ?? 30
     );
 
     const updated = planStore
@@ -51,7 +53,9 @@ describe("planStore", () => {
     expect(updated).toBeDefined();
     if (!updated) return;
 
-    const updatedStart = Temporal.Instant.from(updated.start).toZonedDateTimeISO(updated.zone);
+    const updatedStart = Temporal.Instant.from(
+      updated.start
+    ).toZonedDateTimeISO(updated.zone);
     expect(updatedStart.minute % 30).toBe(0);
   });
 

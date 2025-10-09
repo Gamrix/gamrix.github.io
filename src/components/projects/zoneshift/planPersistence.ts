@@ -1,4 +1,7 @@
-import { CorePlanSchema, type CorePlan } from "@/scripts/projects/zoneshift/model";
+import {
+  CorePlanSchema,
+  type CorePlan,
+} from "@/scripts/projects/zoneshift/model";
 
 export const STORAGE_KEY = "zoneshift-core-plan";
 
@@ -38,7 +41,10 @@ export const persistPlanToStorage = (plan: CorePlan) => {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizePlan(plan)));
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(normalizePlan(plan))
+    );
   } catch (error) {
     console.error("Failed to persist plan", error);
   }

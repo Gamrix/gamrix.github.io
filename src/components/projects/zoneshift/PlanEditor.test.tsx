@@ -44,19 +44,29 @@ describe("PlanEditor", () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
 
     await user.click(screen.getByRole("button", { name: "Table View" }));
 
-    expect(screen.getByRole("button", { name: "Table View" })).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByRole("table", { name: /Derived daily sleep/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Table View" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(
+      await screen.findByRole("table", { name: /Derived daily sleep/i })
+    ).toBeInTheDocument();
   });
 
   it("activates the calendar timeline view", async () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    const calendarButtons = screen.getAllByRole("button", { name: "Calendar View" });
+    const calendarButtons = screen.getAllByRole("button", {
+      name: "Calendar View",
+    });
     await user.click(calendarButtons[0]);
 
     expect(calendarButtons[0]).toHaveAttribute("aria-pressed", "true");
@@ -79,7 +89,9 @@ describe("PlanEditor", () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    const eventCards = await screen.findAllByRole("button", { name: /Flight to Taipei/i });
+    const eventCards = await screen.findAllByRole("button", {
+      name: /Flight to Taipei/i,
+    });
     await user.click(eventCards[0]);
 
     const eventHeadings = await screen.findAllByText(/Edit event/i);
@@ -96,9 +108,13 @@ describe("PlanEditor", () => {
 
     const viewGroups = screen.getAllByRole("group", { name: /View mode/i });
     const viewGroup = viewGroups[0];
-    await user.click(within(viewGroup).getByRole("button", { name: "Table View" }));
+    await user.click(
+      within(viewGroup).getByRole("button", { name: "Table View" })
+    );
 
-    const anchorButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    const anchorButtons = await screen.findAllByRole("button", {
+      name: /Wake time/i,
+    });
     await user.click(anchorButtons[0]);
 
     const wakeTimeHeadings = await screen.findAllByText(/Edit Wake Time/i);
@@ -109,7 +125,9 @@ describe("PlanEditor", () => {
     const user = userEvent.setup();
     render(<PlanEditor />);
 
-    const editButtons = screen.getAllByRole("button", { name: "Edit base parameters" });
+    const editButtons = screen.getAllByRole("button", {
+      name: "Edit base parameters",
+    });
     await user.click(editButtons[0]);
 
     const sleepInput = await screen.findByLabelText(/Sleep hours/i);
@@ -133,7 +151,9 @@ describe("PlanEditor", () => {
 
     render(<PlanEditor />);
 
-    const exportButtons = screen.getAllByRole("button", { name: /Export JSON/i });
+    const exportButtons = screen.getAllByRole("button", {
+      name: /Export JSON/i,
+    });
     await user.click(exportButtons[0]);
 
     expect(writeText).toHaveBeenCalled();

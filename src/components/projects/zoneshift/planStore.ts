@@ -61,71 +61,94 @@ export const planStore = {
   },
 };
 
-export const usePlanStore = <T,>(selector: (state: PlanStoreState) => T): T =>
-  useSyncExternalStore(planStore.subscribe, () => selector(state), () => selector(state));
+export const usePlanStore = <T>(selector: (state: PlanStoreState) => T): T =>
+  useSyncExternalStore(
+    planStore.subscribe,
+    () => selector(state),
+    () => selector(state)
+  );
 
 export const planActions = {
   setViewMode: (mode: ViewMode) =>
-    setState((prev) => ({ ...prev, viewMode: mode } satisfies PlanStoreState)),
+    setState((prev) => ({ ...prev, viewMode: mode }) satisfies PlanStoreState),
   setDisplayZone: (zone: "home" | "target") =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        prefs: {
-          ...(prev.plan.prefs ?? {}),
-          displayZone: zone,
-          timeStepMinutes: prev.plan.prefs?.timeStepMinutes ?? 30,
-        },
-      },
-    } satisfies PlanStoreState)),
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: {
+            ...prev.plan,
+            prefs: {
+              ...(prev.plan.prefs ?? {}),
+              displayZone: zone,
+              timeStepMinutes: prev.plan.prefs?.timeStepMinutes ?? 30,
+            },
+          },
+        }) satisfies PlanStoreState
+    ),
   setTimeStep: (minutes: number) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        prefs: {
-          ...(prev.plan.prefs ?? {}),
-          displayZone: prev.plan.prefs?.displayZone ?? "target",
-          timeStepMinutes: minutes,
-        },
-      },
-    } satisfies PlanStoreState)),
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: {
+            ...prev.plan,
+            prefs: {
+              ...(prev.plan.prefs ?? {}),
+              displayZone: prev.plan.prefs?.displayZone ?? "target",
+              timeStepMinutes: minutes,
+            },
+          },
+        }) satisfies PlanStoreState
+    ),
   setActiveEvent: (id: string | null) =>
-    setState((prev) => ({ ...prev, activeEventId: id } satisfies PlanStoreState)),
+    setState(
+      (prev) => ({ ...prev, activeEventId: id }) satisfies PlanStoreState
+    ),
   setActiveAnchor: (id: string | null) =>
-    setState((prev) => ({ ...prev, activeAnchorId: id } satisfies PlanStoreState)),
+    setState(
+      (prev) => ({ ...prev, activeAnchorId: id }) satisfies PlanStoreState
+    ),
   updateParams: (partial: Partial<CorePlan["params"]>) =>
-    setState((prev) => ({
-      ...prev,
-      plan: normalizePlan({
-        ...prev.plan,
-        params: {
-          ...prev.plan.params,
-          ...partial,
-        },
-      }),
-    } satisfies PlanStoreState)),
-  updateEvent: (
-    eventId: string,
-    updater: (event: EventItem) => EventItem,
-  ) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        events: prev.plan.events.map((event) => (event.id === eventId ? updater(event) : event)),
-      },
-    } satisfies PlanStoreState)),
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: normalizePlan({
+            ...prev.plan,
+            params: {
+              ...prev.plan.params,
+              ...partial,
+            },
+          }),
+        }) satisfies PlanStoreState
+    ),
+  updateEvent: (eventId: string, updater: (event: EventItem) => EventItem) =>
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: {
+            ...prev.plan,
+            events: prev.plan.events.map((event) =>
+              event.id === eventId ? updater(event) : event
+            ),
+          },
+        }) satisfies PlanStoreState
+    ),
   removeEvent: (eventId: string) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        events: prev.plan.events.filter((event) => event.id !== eventId),
-      },
-      activeEventId: prev.activeEventId === eventId ? null : prev.activeEventId,
-    } satisfies PlanStoreState)),
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: {
+            ...prev.plan,
+            events: prev.plan.events.filter((event) => event.id !== eventId),
+          },
+          activeEventId:
+            prev.activeEventId === eventId ? null : prev.activeEventId,
+        }) satisfies PlanStoreState
+    ),
   addEvent: (event: Omit<EventItem, "id"> & { id?: string }) =>
     setState((prev) => {
       const nextId =
@@ -149,8 +172,12 @@ export const planActions = {
     }),
   moveEvent: (
     eventId: string,
-    payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string },
-    stepMinutes: number,
+    payload: {
+      start: Temporal.ZonedDateTime;
+      end?: Temporal.ZonedDateTime;
+      zone: string;
+    },
+    stepMinutes: number
   ) =>
     planActions.updateEvent(eventId, (event) => {
       const startInZone = payload.start.withTimeZone(event.zone);
@@ -160,8 +187,11 @@ export const planActions = {
         month: startInZone.month,
         day: startInZone.day,
       });
-      const startMinutesRaw = startInZone.since(startOfDay).total({ unit: "minutes" });
-      const startSnapped = Math.round(startMinutesRaw / stepMinutes) * stepMinutes;
+      const startMinutesRaw = startInZone
+        .since(startOfDay)
+        .total({ unit: "minutes" });
+      const startSnapped =
+        Math.round(startMinutesRaw / stepMinutes) * stepMinutes;
       const startMinutes = Math.max(0, Math.min(startSnapped, 24 * 60));
       const snappedStart = startOfDay.add({ minutes: startMinutes });
       let endIso: string | undefined;
@@ -173,10 +203,15 @@ export const planActions = {
           month: endInZone.month,
           day: endInZone.day,
         });
-        const endMinutesRaw = endInZone.since(endOfDay).total({ unit: "minutes" });
-        const endSnapped = Math.round(endMinutesRaw / stepMinutes) * stepMinutes;
+        const endMinutesRaw = endInZone
+          .since(endOfDay)
+          .total({ unit: "minutes" });
+        const endSnapped =
+          Math.round(endMinutesRaw / stepMinutes) * stepMinutes;
         const endMinutes = Math.max(0, Math.min(endSnapped, 24 * 60));
-        const snappedEnd = endOfDay.add({ minutes: Math.max(endMinutes, startMinutes + stepMinutes) });
+        const snappedEnd = endOfDay.add({
+          minutes: Math.max(endMinutes, startMinutes + stepMinutes),
+        });
         endIso = snappedEnd.toInstant().toString();
       }
       return {
@@ -187,27 +222,41 @@ export const planActions = {
     }),
   updateAnchor: (
     anchorId: string,
-    updater: (anchor: AnchorPoint) => AnchorPoint,
+    updater: (anchor: AnchorPoint) => AnchorPoint
   ) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        anchors: prev.plan.anchors.map((anchor) => (anchor.id === anchorId ? updater(anchor) : anchor)),
-      },
-    } satisfies PlanStoreState)),
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: {
+            ...prev.plan,
+            anchors: prev.plan.anchors.map((anchor) =>
+              anchor.id === anchorId ? updater(anchor) : anchor
+            ),
+          },
+        }) satisfies PlanStoreState
+    ),
   removeAnchor: (anchorId: string) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        anchors: prev.plan.anchors.filter((anchor) => anchor.id !== anchorId),
-      },
-      activeAnchorId: prev.activeAnchorId === anchorId ? null : prev.activeAnchorId,
-    } satisfies PlanStoreState)),
-  addAnchorAt: (
-    payload: { kind: AnchorPoint["kind"]; zoned: Temporal.ZonedDateTime; zone: string; note?: string },
-  ) =>
+    setState(
+      (prev) =>
+        ({
+          ...prev,
+          plan: {
+            ...prev.plan,
+            anchors: prev.plan.anchors.filter(
+              (anchor) => anchor.id !== anchorId
+            ),
+          },
+          activeAnchorId:
+            prev.activeAnchorId === anchorId ? null : prev.activeAnchorId,
+        }) satisfies PlanStoreState
+    ),
+  addAnchorAt: (payload: {
+    kind: AnchorPoint["kind"];
+    zoned: Temporal.ZonedDateTime;
+    zone: string;
+    note?: string;
+  }) =>
     setState((prev) => {
       const anchorId =
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -224,7 +273,10 @@ export const planActions = {
               kind: payload.kind,
               zone: payload.zone,
               note: payload.note,
-              instant: payload.zoned.withTimeZone(payload.zone).toInstant().toString(),
+              instant: payload.zoned
+                .withTimeZone(payload.zone)
+                .toInstant()
+                .toString(),
             },
           ],
         },
@@ -233,7 +285,7 @@ export const planActions = {
   moveAnchor: (
     anchorId: string,
     payload: { instant: Temporal.ZonedDateTime; zone: string },
-    stepMinutes: number,
+    stepMinutes: number
   ) =>
     planActions.updateAnchor(anchorId, (anchor) => {
       const instantInZone = payload.instant.withTimeZone(anchor.zone);
@@ -243,8 +295,11 @@ export const planActions = {
         month: instantInZone.month,
         day: instantInZone.day,
       });
-      const totalMinutesRaw = instantInZone.since(startOfDay).total({ unit: "minutes" });
-      const totalSnapped = Math.round(totalMinutesRaw / stepMinutes) * stepMinutes;
+      const totalMinutesRaw = instantInZone
+        .since(startOfDay)
+        .total({ unit: "minutes" });
+      const totalSnapped =
+        Math.round(totalMinutesRaw / stepMinutes) * stepMinutes;
       const totalMinutes = Math.max(0, Math.min(totalSnapped, 24 * 60));
       const snapped = startOfDay.add({ minutes: totalMinutes });
       return {
@@ -253,23 +308,32 @@ export const planActions = {
       } satisfies AnchorPoint;
     }),
   importPlan: (plan: CorePlan) =>
-    setState(() => ({
-      plan: normalizePlan(plan),
-      activeEventId: null,
-      activeAnchorId: null,
-      viewMode: "calendar",
-    } satisfies PlanStoreState)),
+    setState(
+      () =>
+        ({
+          plan: normalizePlan(plan),
+          activeEventId: null,
+          activeAnchorId: null,
+          viewMode: "calendar",
+        }) satisfies PlanStoreState
+    ),
   exportPlan: (): string => JSON.stringify(normalizePlan(state.plan), null, 2),
   resetToSample: () =>
-    setState(() => ({
-      plan: normalizePlan(sampleCorePlan),
-      viewMode: "calendar",
-      activeAnchorId: null,
-      activeEventId: null,
-    } satisfies PlanStoreState)),
+    setState(
+      () =>
+        ({
+          plan: normalizePlan(sampleCorePlan),
+          viewMode: "calendar",
+          activeAnchorId: null,
+          activeEventId: null,
+        }) satisfies PlanStoreState
+    ),
   projectInstantToDisplay: (iso: string): string => {
     const plan = state.plan;
-    const displayZone = plan.prefs?.displayZone === "home" ? plan.params.homeZone : plan.params.targetZone;
+    const displayZone =
+      plan.prefs?.displayZone === "home"
+        ? plan.params.homeZone
+        : plan.params.targetZone;
     return Temporal.Instant.from(iso)
       .toZonedDateTimeISO(plan.params.targetZone)
       .withTimeZone(displayZone)

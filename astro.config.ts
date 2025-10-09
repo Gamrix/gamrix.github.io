@@ -9,7 +9,7 @@ const site = process.env.VERCEL
   ? process.env.VERCEL_ENV === "production"
     ? "https://astro-shadcn-ui-template.vercel.app"
     : `https://${process.env.VERCEL_URL}`
-  : (process.env.SITE || githubPagesUrl);
+  : process.env.SITE || githubPagesUrl;
 const base = process.env.BASE || "/";
 
 // https://astro.build/config

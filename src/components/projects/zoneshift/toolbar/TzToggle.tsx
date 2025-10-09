@@ -7,7 +7,12 @@ interface TzToggleProps {
   onChange: (mode: "home" | "target") => void;
 }
 
-export function TzToggle({ displayZone, homeZone, targetZone, onChange }: TzToggleProps) {
+export function TzToggle({
+  displayZone,
+  homeZone,
+  targetZone,
+  onChange,
+}: TzToggleProps) {
   return (
     <div className="flex items-center gap-3 rounded-lg border bg-card/70 p-2 text-xs text-muted-foreground shadow-sm">
       <span className="uppercase tracking-[0.18em]">Display zone</span>
@@ -20,7 +25,9 @@ export function TzToggle({ displayZone, homeZone, targetZone, onChange }: TzTogg
           aria-pressed={displayZone === "target"}
         >
           Target
-          <span className="ml-2 text-[10px] text-muted-foreground">{targetZone}</span>
+          <span className="ml-2 text-[10px] text-muted-foreground">
+            {targetZone}
+          </span>
         </Button>
         <Button
           type="button"
@@ -30,7 +37,9 @@ export function TzToggle({ displayZone, homeZone, targetZone, onChange }: TzTogg
           aria-pressed={displayZone === "home"}
         >
           Home
-          <span className="ml-2 text-[10px] text-muted-foreground">{homeZone}</span>
+          <span className="ml-2 text-[10px] text-muted-foreground">
+            {homeZone}
+          </span>
         </Button>
       </div>
     </div>

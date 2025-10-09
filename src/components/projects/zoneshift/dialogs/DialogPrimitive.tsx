@@ -15,7 +15,11 @@ interface DialogProps {
 }
 
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
-  return <DialogContext.Provider value={{ open, onOpenChange }}>{children}</DialogContext.Provider>;
+  return (
+    <DialogContext.Provider value={{ open, onOpenChange }}>
+      {children}
+    </DialogContext.Provider>
+  );
 }
 
 const useDialogContext = () => {
@@ -101,13 +105,19 @@ export function DialogDescription({ children }: { children: React.ReactNode }) {
 }
 
 export function DialogFooter({ children }: { children: React.ReactNode }) {
-  return <div className="mt-6 flex flex-wrap justify-end gap-3">{children}</div>;
+  return (
+    <div className="mt-6 flex flex-wrap justify-end gap-3">{children}</div>
+  );
 }
 
 export function DialogClose({ children }: { children: React.ReactNode }) {
   const { onOpenChange } = useDialogContext();
   return (
-    <button type="button" onClick={() => onOpenChange(false)} className="text-sm text-muted-foreground">
+    <button
+      type="button"
+      onClick={() => onOpenChange(false)}
+      className="text-sm text-muted-foreground"
+    >
       {children}
     </button>
   );

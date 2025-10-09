@@ -33,7 +33,11 @@ const anchorKindLabel = {
   sleep: "Sleep time",
 } as const;
 
-export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: ScheduleTableProps) {
+export function ScheduleTable({
+  computed,
+  displayZoneId,
+  onEditAnchor,
+}: ScheduleTableProps) {
   if (computed.days.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -50,12 +54,24 @@ export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: Schedul
         </caption>
         <thead className="bg-muted/50 text-xs uppercase tracking-[0.18em] text-muted-foreground">
           <tr>
-            <th scope="col" className="px-6 py-3 font-medium">Date</th>
-            <th scope="col" className="px-6 py-3 font-medium">Shift Δ (h)</th>
-            <th scope="col" className="px-6 py-3 font-medium">Sleep Start</th>
-            <th scope="col" className="px-6 py-3 font-medium">Sleep End</th>
-            <th scope="col" className="px-6 py-3 font-medium">Wake</th>
-            <th scope="col" className="px-6 py-3 font-medium">Bright Window</th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Date
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Shift Δ (h)
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Sleep Start
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Sleep End
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Wake
+            </th>
+            <th scope="col" className="px-6 py-3 font-medium">
+              Bright Window
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/70">
@@ -72,7 +88,10 @@ export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: Schedul
                         const anchorTime = Temporal.Instant.from(anchor.instant)
                           .toZonedDateTimeISO(displayZoneId)
                           .toPlainTime()
-                          .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+                          .toString({
+                            smallestUnit: "minute",
+                            fractionalSecondDigits: 0,
+                          });
                         const label = `${anchorKindLabel[anchor.kind]} @ ${anchorTime}`;
                         const badgeClass =
                           "inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
@@ -106,12 +125,16 @@ export function ScheduleTable({ computed, displayZoneId, onEditAnchor }: Schedul
                 <td className="px-6 py-4 align-middle font-mono text-sm text-muted-foreground">
                   {formatChange(day.changeThisDayHours)}
                 </td>
-                <td className="px-6 py-4 align-middle font-mono text-sm">{day.sleepStartLocal}</td>
+                <td className="px-6 py-4 align-middle font-mono text-sm">
+                  {day.sleepStartLocal}
+                </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
                   {day.sleepEndLocal}
                   {rangeDaySuffix(day.sleepStartZoned, day.sleepEndZoned)}
                 </td>
-                <td className="px-6 py-4 align-middle font-mono text-sm">{day.wakeTimeLocal}</td>
+                <td className="px-6 py-4 align-middle font-mono text-sm">
+                  {day.wakeTimeLocal}
+                </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
                   {formatRangeLabel(day.brightStartZoned, day.brightEndZoned)}
                 </td>

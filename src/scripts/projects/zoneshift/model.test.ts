@@ -42,7 +42,7 @@ describe("CorePlanSchema", () => {
         },
         anchors: [],
         events: [],
-      }),
+      })
     ).toThrow();
   });
 });
@@ -52,11 +52,15 @@ describe("makeDefaultShiftAnchor", () => {
     const anchor = makeDefaultShiftAnchor(basePlan());
     expect(anchor.kind).toBe("wake");
     expect(anchor.zone).toBe("Asia/Taipei");
-    const anchorZdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(anchor.zone);
-    expect(anchorZdt.toPlainDate().toString()).toBe("2024-10-24");
-    expect(anchorZdt.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })).toBe(
-      "09:30",
+    const anchorZdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
+      anchor.zone
     );
+    expect(anchorZdt.toPlainDate().toString()).toBe("2024-10-24");
+    expect(
+      anchorZdt
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
+    ).toBe("09:30");
   });
 });
 
@@ -114,10 +118,14 @@ describe("computeBrightWindow", () => {
     const sleepStart = wake.add({ hours: 8 });
     const bright = computeBrightWindow(wake, sleepStart);
     expect(
-      bright.start.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      bright.start
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
     ).toBe("09:30");
     expect(
-      bright.end.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      bright.end
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
     ).toBe("14:30");
   });
 
@@ -133,10 +141,14 @@ describe("computeBrightWindow", () => {
     const sleepStart = wake.add({ hours: 2 });
     const bright = computeBrightWindow(wake, sleepStart);
     expect(
-      bright.start.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      bright.start
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
     ).toBe("09:00");
     expect(
-      bright.end.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      bright.end
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
     ).toBe("14:00");
   });
 });
@@ -178,10 +190,10 @@ describe("computePlan", () => {
     } satisfies CorePlan;
     const anchoredComputed = computePlan(anchoredPlan);
     const anchorIds = anchoredComputed.days.flatMap((day) =>
-      day.anchors.map((anchor) => anchor.id),
+      day.anchors.map((anchor) => anchor.id)
     );
     const editableAnchorIds = anchoredComputed.days.flatMap((day) =>
-      day.anchors.filter((anchor) => anchor.editable).map((anchor) => anchor.id),
+      day.anchors.filter((anchor) => anchor.editable).map((anchor) => anchor.id)
     );
     expect(anchorIds).toContain("user-anchor");
     expect(editableAnchorIds).toContain("user-anchor");
@@ -189,7 +201,10 @@ describe("computePlan", () => {
     expect(computed.meta.direction).toBe("later");
     expect(computed.meta.perDayShifts[0]).toBe(0);
 
-    const totalShift = computed.meta.perDayShifts.reduce((sum, value) => sum + value, 0);
+    const totalShift = computed.meta.perDayShifts.reduce(
+      (sum, value) => sum + value,
+      0
+    );
     expect(totalShift).toBeCloseTo(9, 1);
   });
 });

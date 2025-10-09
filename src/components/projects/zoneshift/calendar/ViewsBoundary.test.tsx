@@ -44,7 +44,7 @@ describe("Zoneshift day-boundary handling", () => {
         displayZoneId={boundaryPlan.params.targetZone}
         onEditAnchor={vi.fn()}
         onEditEvent={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getAllByText(/\(\+1 day\)/i).length).toBeGreaterThan(0);
@@ -58,7 +58,7 @@ describe("Zoneshift day-boundary handling", () => {
         displayZoneId={boundaryPlan.params.targetZone}
         onEditAnchor={vi.fn()}
         onEditEvent={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getAllByText(/\(\+1 day\)/i).length).toBeGreaterThan(0);
@@ -72,10 +72,12 @@ describe("Zoneshift day-boundary handling", () => {
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.targetZone}
         onEditEvent={vi.fn()}
-      />,
+      />
     );
 
-    await user.click(screen.getByRole("button", { name: /Overnight Session/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Overnight Session/i })
+    );
 
     expect(screen.getAllByText(/\(\+1 day\)/i).length).toBeGreaterThan(0);
   });

@@ -19,7 +19,12 @@ import { ScheduleTable } from "./table/ScheduleTable";
 import { ImportExport } from "./toolbar/ImportExport";
 import { TzToggle } from "./toolbar/TzToggle";
 import { computePlan } from "@/scripts/projects/zoneshift/model";
-import { planActions, planStore, type ViewMode, usePlanStore } from "./planStore";
+import {
+  planActions,
+  planStore,
+  type ViewMode,
+  usePlanStore,
+} from "./planStore";
 
 const VIEW_OPTIONS: Array<{ id: ViewMode; label: string }> = [
   { id: "calendar", label: "List View" },
@@ -36,15 +41,20 @@ export function PlanEditor() {
   const [paramsOpen, setParamsOpen] = useState(false);
 
   const displayZone = plan.prefs?.displayZone ?? "target";
-  const displayZoneId = displayZone === "home" ? plan.params.homeZone : plan.params.targetZone;
+  const displayZoneId =
+    displayZone === "home" ? plan.params.homeZone : plan.params.targetZone;
   const timeStepMinutes = plan.prefs?.timeStepMinutes ?? 30;
 
   const computed = useMemo(() => computePlan(plan), [plan]);
 
-  const activeEvent = plan.events.find((event) => event.id === activeEventId) ?? null;
-  const activeAnchor = plan.anchors.find((anchor) => anchor.id === activeAnchorId) ?? null;
+  const activeEvent =
+    plan.events.find((event) => event.id === activeEventId) ?? null;
+  const activeAnchor =
+    plan.anchors.find((anchor) => anchor.id === activeAnchorId) ?? null;
 
-  const totalDeltaHours = computed.meta.totalDeltaHours.toFixed(1).replace(/\.0$/, "");
+  const totalDeltaHours = computed.meta.totalDeltaHours
+    .toFixed(1)
+    .replace(/\.0$/, "");
   const firstDay = computed.days[0];
   const lastDay = computed.days[computed.days.length - 1];
 
@@ -60,11 +70,20 @@ export function PlanEditor() {
       <header className="flex flex-col gap-4 rounded-xl border bg-card/70 p-6 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Plan overview</p>
-            <h1 className="text-2xl font-semibold text-foreground">Zoneshift alignment</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Plan overview
+            </p>
+            <h1 className="text-2xl font-semibold text-foreground">
+              Zoneshift alignment
+            </h1>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => setParamsOpen(true)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setParamsOpen(true)}
+            >
               Edit base parameters
             </Button>
             <fieldset className="flex gap-2">
@@ -88,19 +107,27 @@ export function PlanEditor() {
         <dl className="grid gap-6 text-sm text-muted-foreground md:grid-cols-4">
           <div>
             <dt className="uppercase tracking-[0.16em]">Shift strategy</dt>
-            <dd className="text-lg font-medium text-foreground">{computed.meta.direction}</dd>
+            <dd className="text-lg font-medium text-foreground">
+              {computed.meta.direction}
+            </dd>
           </div>
           <div>
             <dt className="uppercase tracking-[0.16em]">Total delta</dt>
-            <dd className="text-lg font-medium text-foreground">{totalDeltaHours}h</dd>
+            <dd className="text-lg font-medium text-foreground">
+              {totalDeltaHours}h
+            </dd>
           </div>
           <div>
             <dt className="uppercase tracking-[0.16em]">Kickoff sleep</dt>
-            <dd className="text-lg font-medium text-foreground">{firstSleepLabel}</dd>
+            <dd className="text-lg font-medium text-foreground">
+              {firstSleepLabel}
+            </dd>
           </div>
           <div>
             <dt className="uppercase tracking-[0.16em]">Final alignment</dt>
-            <dd className="text-lg font-medium text-foreground">{finalSleepLabel}</dd>
+            <dd className="text-lg font-medium text-foreground">
+              {finalSleepLabel}
+            </dd>
           </div>
         </dl>
       </header>
@@ -144,10 +171,14 @@ export function PlanEditor() {
                 planActions.moveAnchor(anchorId, payload, timeStepMinutes)
               }
               onAddAnchor={(payload) => {
-                const existingIds = new Set(plan.anchors.map((anchor) => anchor.id));
+                const existingIds = new Set(
+                  plan.anchors.map((anchor) => anchor.id)
+                );
                 planActions.addAnchorAt(payload);
                 const nextAnchors = planStore.getState().plan.anchors;
-                const created = nextAnchors.find((anchor) => !existingIds.has(anchor.id));
+                const created = nextAnchors.find(
+                  (anchor) => !existingIds.has(anchor.id)
+                );
                 if (created) {
                   planActions.setActiveAnchor(created.id);
                 }
@@ -174,7 +205,8 @@ export function PlanEditor() {
           <DialogHeader>
             <DialogTitle>Adjust base parameters</DialogTitle>
             <DialogDescription>
-              Configure the source and destination zones along with core sleep preferences for this plan.
+              Configure the source and destination zones along with core sleep
+              preferences for this plan.
             </DialogDescription>
           </DialogHeader>
           <PlanParamsForm
@@ -195,7 +227,10 @@ export function PlanEditor() {
         open={Boolean(activeEvent)}
         onClose={() => planActions.setActiveEvent(null)}
         onUpdate={(eventId, payload) =>
-          planActions.updateEvent(eventId, (event) => ({ ...event, ...payload }))
+          planActions.updateEvent(eventId, (event) => ({
+            ...event,
+            ...payload,
+          }))
         }
         onRemove={planActions.removeEvent}
       />
@@ -206,7 +241,10 @@ export function PlanEditor() {
         open={Boolean(activeAnchor)}
         onClose={() => planActions.setActiveAnchor(null)}
         onUpdate={(anchorId, payload) =>
-          planActions.updateAnchor(anchorId, (anchor) => ({ ...anchor, ...payload }))
+          planActions.updateAnchor(anchorId, (anchor) => ({
+            ...anchor,
+            ...payload,
+          }))
         }
         onRemove={planActions.removeAnchor}
       />

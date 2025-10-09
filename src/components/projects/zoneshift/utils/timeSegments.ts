@@ -18,14 +18,17 @@ export const describeDayDelta = (difference: number) => {
 export const rangeDaySuffix = (startIso: string, endIso: string) => {
   const start = Temporal.ZonedDateTime.from(startIso);
   const end = Temporal.ZonedDateTime.from(endIso);
-  const dayDifference = Temporal.PlainDate.compare(end.toPlainDate(), start.toPlainDate());
+  const dayDifference = Temporal.PlainDate.compare(
+    end.toPlainDate(),
+    start.toPlainDate()
+  );
   return describeDayDelta(dayDifference);
 };
 
 export const formatRangeLabel = (
   startIso: string,
   endIso: string,
-  options?: { separator?: string },
+  options?: { separator?: string }
 ) => {
   const start = Temporal.ZonedDateTime.from(startIso);
   const end = Temporal.ZonedDateTime.from(endIso);
@@ -38,7 +41,10 @@ export const formatRangeLabel = (
     .toPlainTime()
     .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
-  const instantComparison = Temporal.Instant.compare(end.toInstant(), start.toInstant());
+  const instantComparison = Temporal.Instant.compare(
+    end.toInstant(),
+    start.toInstant()
+  );
   const suffix = rangeDaySuffix(startIso, endIso);
 
   if (instantComparison === 0) {
@@ -70,7 +76,10 @@ export interface DaySegment {
   end: Temporal.ZonedDateTime;
 }
 
-export const splitRangeByDay = (start: Temporal.ZonedDateTime, end: Temporal.ZonedDateTime) => {
+export const splitRangeByDay = (
+  start: Temporal.ZonedDateTime,
+  end: Temporal.ZonedDateTime
+) => {
   if (Temporal.Instant.compare(end.toInstant(), start.toInstant()) <= 0) {
     return [] satisfies DaySegment[];
   }
@@ -93,7 +102,9 @@ export const splitRangeByDay = (start: Temporal.ZonedDateTime, end: Temporal.Zon
     });
     const dayEnd = dayStart.add({ days: 1 });
     const segmentEnd =
-      Temporal.Instant.compare(end.toInstant(), dayEnd.toInstant()) < 0 ? end : dayEnd;
+      Temporal.Instant.compare(end.toInstant(), dayEnd.toInstant()) < 0
+        ? end
+        : dayEnd;
 
     segments.push({
       date: cursor.toPlainDate().toString(),
@@ -101,7 +112,9 @@ export const splitRangeByDay = (start: Temporal.ZonedDateTime, end: Temporal.Zon
       end: segmentEnd,
     });
 
-    if (Temporal.Instant.compare(segmentEnd.toInstant(), end.toInstant()) >= 0) {
+    if (
+      Temporal.Instant.compare(segmentEnd.toInstant(), end.toInstant()) >= 0
+    ) {
       break;
     }
 

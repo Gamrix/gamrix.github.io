@@ -25,7 +25,9 @@ const toLocalValue = (instantIso: string, zone: string) => {
   const zdt = Temporal.Instant.from(instantIso).toZonedDateTimeISO(zone);
   return {
     date: zdt.toPlainDate().toString(),
-    time: zdt.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+    time: zdt
+      .toPlainTime()
+      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
   };
 };
 
@@ -43,7 +45,14 @@ const toInstant = (date: string, time: string, zone: string) => {
   return zoned.toInstant().toString();
 };
 
-export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }: AnchorDialogProps) {
+export function AnchorDialog({
+  plan,
+  anchor,
+  open,
+  onClose,
+  onUpdate,
+  onRemove,
+}: AnchorDialogProps) {
   const [zone, setZone] = useState(plan.params.targetZone);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -54,7 +63,10 @@ export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }
       return;
     }
     setZone(anchor.zone);
-    const { date: localDate, time: localTime } = toLocalValue(anchor.instant, anchor.zone);
+    const { date: localDate, time: localTime } = toLocalValue(
+      anchor.instant,
+      anchor.zone
+    );
     setDate(localDate);
     setTime(localTime);
     setNote(anchor.note ?? "");
@@ -155,7 +167,12 @@ export function AnchorDialog({ plan, anchor, open, onClose, onUpdate, onRemove }
             <Button type="button" variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={removeAnchor}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={removeAnchor}
+            >
               Remove {anchorLabel}
             </Button>
           </DialogFooter>

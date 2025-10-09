@@ -1,6 +1,9 @@
 import type { Temporal } from "@js-temporal/polyfill";
 
-import type { ComputedView, CorePlan } from "@/scripts/projects/zoneshift/model";
+import type {
+  ComputedView,
+  CorePlan,
+} from "@/scripts/projects/zoneshift/model";
 import { Timeline } from "./Timeline";
 
 interface CalendarViewProps {
@@ -16,12 +19,16 @@ interface CalendarViewProps {
 
 type CalendarEventChangeHandler = (
   eventId: string,
-  payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string },
+  payload: {
+    start: Temporal.ZonedDateTime;
+    end?: Temporal.ZonedDateTime;
+    zone: string;
+  }
 ) => void;
 
 type CalendarAnchorChangeHandler = (
   anchorId: string,
-  payload: { instant: Temporal.ZonedDateTime; zone: string },
+  payload: { instant: Temporal.ZonedDateTime; zone: string }
 ) => void;
 
 type CalendarAddAnchorHandler = (payload: {
@@ -32,14 +39,18 @@ type CalendarAddAnchorHandler = (payload: {
 
 function noopEventChange(
   _eventId: string,
-  _payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string },
+  _payload: {
+    start: Temporal.ZonedDateTime;
+    end?: Temporal.ZonedDateTime;
+    zone: string;
+  }
 ): void {
   return;
 }
 
 function noopAnchorChange(
   _anchorId: string,
-  _payload: { instant: Temporal.ZonedDateTime; zone: string },
+  _payload: { instant: Temporal.ZonedDateTime; zone: string }
 ): void {
   return;
 }

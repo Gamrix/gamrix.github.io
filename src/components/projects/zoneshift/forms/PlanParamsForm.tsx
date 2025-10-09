@@ -47,17 +47,23 @@ export function PlanParamsForm({
   const [homeZone, setHomeZone] = useState(plan.params.homeZone);
   const [targetZone, setTargetZone] = useState(plan.params.targetZone);
   const [startSleepLocal, setStartSleepLocal] = useState(
-    formatLocalDateTime(plan.params.startSleepUtc, plan.params.targetZone),
+    formatLocalDateTime(plan.params.startSleepUtc, plan.params.targetZone)
   );
   const [sleepHours, setSleepHours] = useState(plan.params.sleepHours);
-  const [maxLater, setMaxLater] = useState(plan.params.maxShiftLaterPerDayHours);
-  const [maxEarlier, setMaxEarlier] = useState(plan.params.maxShiftEarlierPerDayHours);
+  const [maxLater, setMaxLater] = useState(
+    plan.params.maxShiftLaterPerDayHours
+  );
+  const [maxEarlier, setMaxEarlier] = useState(
+    plan.params.maxShiftEarlierPerDayHours
+  );
   const [timeStep, setTimeStep] = useState(plan.prefs?.timeStepMinutes ?? 30);
 
   useEffect(() => {
     setHomeZone(plan.params.homeZone);
     setTargetZone(plan.params.targetZone);
-    setStartSleepLocal(formatLocalDateTime(plan.params.startSleepUtc, plan.params.targetZone));
+    setStartSleepLocal(
+      formatLocalDateTime(plan.params.startSleepUtc, plan.params.targetZone)
+    );
     setSleepHours(plan.params.sleepHours);
     setMaxLater(plan.params.maxShiftLaterPerDayHours);
     setMaxEarlier(plan.params.maxShiftEarlierPerDayHours);
@@ -83,10 +89,17 @@ export function PlanParamsForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={cn("space-y-3 text-sm", className)}>
+    <form
+      onSubmit={handleSubmit}
+      className={cn("space-y-3 text-sm", className)}
+    >
       <div>
-        <h2 className="text-base font-semibold text-foreground">Plan parameters</h2>
-        <p className="text-xs text-muted-foreground">Adjust the core sleep settings for this plan.</p>
+        <h2 className="text-base font-semibold text-foreground">
+          Plan parameters
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Adjust the core sleep settings for this plan.
+        </p>
       </div>
 
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">

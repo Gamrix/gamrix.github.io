@@ -9,7 +9,10 @@ describe("ZoneShiftDemo", () => {
     render(<ZoneShiftDemo />);
 
     expect(screen.getByText(/Asia\/Taipei/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
 
     await user.click(screen.getByRole("button", { name: "Home Zone" }));
 
@@ -23,7 +26,9 @@ describe("ZoneShiftDemo", () => {
     const tableButtons = screen.getAllByRole("button", { name: "Table View" });
     await user.click(tableButtons[0]);
 
-    const editButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    const editButtons = await screen.findAllByRole("button", {
+      name: /Wake time/i,
+    });
     await user.click(editButtons[0]);
 
     const timeInput = await screen.findByLabelText(/Local time/i);
@@ -32,7 +37,9 @@ describe("ZoneShiftDemo", () => {
 
     await user.click(screen.getByRole("button", { name: /Save wake time/i }));
 
-    const updatedWakeButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    const updatedWakeButtons = await screen.findAllByRole("button", {
+      name: /Wake time/i,
+    });
     await user.click(updatedWakeButtons[0]);
 
     const updatedTimeInput = await screen.findByLabelText(/Local time/i);

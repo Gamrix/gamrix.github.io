@@ -50,7 +50,12 @@ const getMinutesFromZdt = (value: Temporal.ZonedDateTime) => {
   return minutesSinceStartOfDay(value);
 };
 
-const carveRange = (segments: TimeSegment[], start: number, end: number, type: SegmentType) => {
+const carveRange = (
+  segments: TimeSegment[],
+  start: number,
+  end: number,
+  type: SegmentType
+) => {
   if (end <= start) {
     return segments;
   }
@@ -62,7 +67,11 @@ const carveRange = (segments: TimeSegment[], start: number, end: number, type: S
     if (segment.start < start) {
       slices.push({ start: segment.start, end: start, type: segment.type });
     }
-    slices.push({ start: Math.max(segment.start, start), end: Math.min(segment.end, end), type });
+    slices.push({
+      start: Math.max(segment.start, start),
+      end: Math.min(segment.end, end),
+      type,
+    });
     if (segment.end > end) {
       slices.push({ start: end, end: segment.end, type: segment.type });
     }
@@ -70,7 +79,12 @@ const carveRange = (segments: TimeSegment[], start: number, end: number, type: S
   });
 };
 
-const applySegment = (segments: TimeSegment[], start: number | null, end: number | null, type: SegmentType) => {
+const applySegment = (
+  segments: TimeSegment[],
+  start: number | null,
+  end: number | null,
+  type: SegmentType
+) => {
   if (start === null || end === null) {
     return segments;
   }
@@ -97,7 +111,9 @@ const colourForSegment = (type: SegmentType) => {
 };
 
 const formatEventTime = (value: Temporal.ZonedDateTime) =>
-  value.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+  value
+    .toPlainTime()
+    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
 export function MiniCalendarView({
   computed,
@@ -108,7 +124,9 @@ export function MiniCalendarView({
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [daysPerPage, setDaysPerPage] = useState(MIN_DAYS_PER_PAGE);
-  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
+  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(
+    null
+  );
   const [containerWidth, setContainerWidth] = useState(0);
 
   const setScrollContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -119,16 +137,26 @@ export function MiniCalendarView({
     const mapping = new Map<string, MiniEvent[]>();
     computed.projectedEvents.forEach((event) => {
       try {
-        const start = Temporal.ZonedDateTime.from(event.startZoned).withTimeZone(displayZoneId);
+        const start = Temporal.ZonedDateTime.from(
+          event.startZoned
+        ).withTimeZone(displayZoneId);
         const end = event.endZoned
-          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(displayZoneId)
+          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(
+              displayZoneId
+            )
           : undefined;
         const key = start.toPlainDate().toString();
         const summary = end
           ? formatRangeLabel(
-              start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-              end.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-              { separator: " → " },
+              start.toString({
+                smallestUnit: "minute",
+                fractionalSecondDigits: 0,
+              }),
+              end.toString({
+                smallestUnit: "minute",
+                fractionalSecondDigits: 0,
+              }),
+              { separator: " → " }
             )
           : formatEventTime(start);
         const bucket = mapping.get(key) ?? [];
@@ -149,7 +177,7 @@ export function MiniCalendarView({
   const timelineByDay = useMemo(() => {
     const toMinutes = (iso: string) => {
       return minutesSinceStartOfDay(
-        Temporal.ZonedDateTime.from(iso).withTimeZone(displayZoneId),
+        Temporal.ZonedDateTime.from(iso).withTimeZone(displayZoneId)
       );
     };
 
@@ -159,7 +187,9 @@ export function MiniCalendarView({
       const brightStart = toMinutes(day.brightStartZoned);
       const brightEnd = toMinutes(day.brightEndZoned);
 
-      let segments: TimeSegment[] = [{ start: 0, end: MINUTES_IN_DAY, type: "other" }];
+      let segments: TimeSegment[] = [
+        { start: 0, end: MINUTES_IN_DAY, type: "other" },
+      ];
 
       if (sleepStart !== null && sleepEnd !== null) {
         segments = applySegment(segments, sleepStart, sleepEnd, "sleep");
@@ -172,7 +202,9 @@ export function MiniCalendarView({
       const wakeAnchors: MiniAnchor[] = day.anchors
         .filter((anchor) => anchor.kind === "wake")
         .map((anchor) => {
-          const zdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
+          const zdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
+            displayZoneId
+          );
           const minutes = getMinutesFromZdt(zdt);
           return {
             id: anchor.id,
@@ -212,9 +244,14 @@ export function MiniCalendarView({
 
       const rawCount =
         width > 0
-          ? Math.floor((width + DAY_GAP_PX) / (DAY_COLUMN_WIDTH_PX + DAY_GAP_PX))
+          ? Math.floor(
+              (width + DAY_GAP_PX) / (DAY_COLUMN_WIDTH_PX + DAY_GAP_PX)
+            )
           : MIN_DAYS_PER_PAGE;
-      const desired = Math.max(MIN_DAYS_PER_PAGE, rawCount || MIN_DAYS_PER_PAGE);
+      const desired = Math.max(
+        MIN_DAYS_PER_PAGE,
+        rawCount || MIN_DAYS_PER_PAGE
+      );
       const clamped = Math.min(desired, totalDays);
 
       setDaysPerPage((previous) => (previous === clamped ? previous : clamped));
@@ -238,7 +275,10 @@ export function MiniCalendarView({
 
   useEffect(() => {
     setPageIndex((prev) => {
-      const maxPage = Math.max(0, Math.ceil(timelineByDay.length / daysPerPage) - 1);
+      const maxPage = Math.max(
+        0,
+        Math.ceil(timelineByDay.length / daysPerPage) - 1
+      );
       return Math.min(prev, maxPage);
     });
   }, [daysPerPage, timelineByDay.length]);
@@ -252,16 +292,23 @@ export function MiniCalendarView({
   }
 
   const startIndex = pageIndex * daysPerPage;
-  const visibleTimeline = timelineByDay.slice(startIndex, startIndex + daysPerPage);
+  const visibleTimeline = timelineByDay.slice(
+    startIndex,
+    startIndex + daysPerPage
+  );
   const hasPrevious = startIndex > 0;
   const hasNext = startIndex + daysPerPage < timelineByDay.length;
-  const maxPageIndex = Math.max(0, Math.ceil(timelineByDay.length / daysPerPage) - 1);
+  const maxPageIndex = Math.max(
+    0,
+    Math.ceil(timelineByDay.length / daysPerPage) - 1
+  );
   const visibleCount = visibleTimeline.length;
   const dayColumnWidth =
     visibleCount > 0 && containerWidth > 0
       ? Math.max(
           DAY_COLUMN_WIDTH_PX,
-          (containerWidth - Math.max(0, visibleCount - 1) * DAY_GAP_PX) / visibleCount,
+          (containerWidth - Math.max(0, visibleCount - 1) * DAY_GAP_PX) /
+            visibleCount
         )
       : DAY_COLUMN_WIDTH_PX;
 
@@ -270,8 +317,12 @@ export function MiniCalendarView({
       <div className="rounded-lg border bg-card/70 p-3 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
-            <span className="font-semibold uppercase tracking-[0.18em]">Mini calendar</span>
-            <span className="text-muted-foreground">All times in {displayZoneId}</span>
+            <span className="font-semibold uppercase tracking-[0.18em]">
+              Mini calendar
+            </span>
+            <span className="text-muted-foreground">
+              All times in {displayZoneId}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {onOpenPlanSettings ? (
@@ -301,7 +352,9 @@ export function MiniCalendarView({
               variant="outline"
               className="h-7 px-2 text-xs"
               onClick={() =>
-                setPageIndex((prev) => (hasNext ? Math.min(prev + 1, maxPageIndex) : prev))
+                setPageIndex((prev) =>
+                  hasNext ? Math.min(prev + 1, maxPageIndex) : prev
+                )
               }
               disabled={!hasNext}
             >
@@ -313,14 +366,24 @@ export function MiniCalendarView({
       <div className="rounded-lg border bg-card/80 p-3 shadow-sm">
         <div
           className="grid"
-          style={{ gridTemplateColumns: `${AXIS_WIDTH} 1fr`, height: TOTAL_HEIGHT }}
+          style={{
+            gridTemplateColumns: `${AXIS_WIDTH} 1fr`,
+            height: TOTAL_HEIGHT,
+          }}
         >
           <div
             className="flex flex-col items-end text-[10px] text-muted-foreground"
-            style={{ width: AXIS_WIDTH, minWidth: AXIS_WIDTH, height: TOTAL_HEIGHT }}
+            style={{
+              width: AXIS_WIDTH,
+              minWidth: AXIS_WIDTH,
+              height: TOTAL_HEIGHT,
+            }}
           >
             <div className="h-10" />
-            <div className="relative w-full" style={{ height: TIMELINE_HEIGHT }}>
+            <div
+              className="relative w-full"
+              style={{ height: TIMELINE_HEIGHT }}
+            >
               {hourMarkers.map((hour) => {
                 const minutes = hour * 60;
                 const topPercent = (minutes / MINUTES_IN_DAY) * 100;
@@ -357,99 +420,132 @@ export function MiniCalendarView({
               })}
             </div>
             <div className="absolute left-0 right-0 top-0 bottom-0 flex flex-col">
-              <div ref={setScrollContainerRef} className="flex-1 overflow-x-auto pt-2">
+              <div
+                ref={setScrollContainerRef}
+                className="flex-1 overflow-x-auto pt-2"
+              >
                 <div className="flex h-full gap-4">
-                  {visibleTimeline.map(({ day, segments, events, wakeAnchors }) => {
-                    const isoDate = Temporal.PlainDate.from(day.dateTargetZone);
-                    const weekday = isoDate.toLocaleString("en-US", { weekday: "short" });
-                    const dateLabel = isoDate.toLocaleString("en-US", { month: "short", day: "numeric" });
+                  {visibleTimeline.map(
+                    ({ day, segments, events, wakeAnchors }) => {
+                      const isoDate = Temporal.PlainDate.from(
+                        day.dateTargetZone
+                      );
+                      const weekday = isoDate.toLocaleString("en-US", {
+                        weekday: "short",
+                      });
+                      const dateLabel = isoDate.toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
 
-                    return (
-                      <div
-                        key={day.dateTargetZone}
-                        className="relative h-full flex-shrink-0"
-                        style={{
-                          width: `${dayColumnWidth}px`,
-                          minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
-                        }}
-                      >
-                        <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
-                          <div className="font-semibold text-foreground">{weekday}</div>
-                          <div>{dateLabel}</div>
-                        </div>
-                        <div className="absolute inset-x-0 bottom-0 top-10">
-                          <div className="relative h-full w-full overflow-visible">
-                            <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
-                            {segments.map((segment, index) => (
-                              <div
-                                key={`${segment.type}-${index}-${day.dateTargetZone}`}
-                                className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
-                                style={{
-                                  top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
-                                  height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
-                                }}
-                              />
-                            ))}
+                      return (
+                        <div
+                          key={day.dateTargetZone}
+                          className="relative h-full flex-shrink-0"
+                          style={{
+                            width: `${dayColumnWidth}px`,
+                            minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
+                          }}
+                        >
+                          <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
+                            <div className="font-semibold text-foreground">
+                              {weekday}
+                            </div>
+                            <div>{dateLabel}</div>
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 top-10">
+                            <div className="relative h-full w-full overflow-visible">
+                              <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
+                              {segments.map((segment, index) => (
+                                <div
+                                  key={`${segment.type}-${index}-${day.dateTargetZone}`}
+                                  className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
+                                  style={{
+                                    top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
+                                    height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
+                                  }}
+                                />
+                              ))}
 
-                            {wakeAnchors.map((anchor) => (
-                              <div
-                                key={anchor.id}
-                                className="absolute left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 text-[10px] font-medium text-emerald-500"
-                                style={{ top: `${(anchor.minuteOffset / MINUTES_IN_DAY) * 100}%` }}
-                              >
-                                <div className="flex -translate-y-1 items-center gap-2">
-                                  <div className="h-4 w-4 rounded-full border-2 border-emerald-400 bg-card shadow-sm" />
-                                  <span>{anchor.label}</span>
+                              {wakeAnchors.map((anchor) => (
+                                <div
+                                  key={anchor.id}
+                                  className="absolute left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 text-[10px] font-medium text-emerald-500"
+                                  style={{
+                                    top: `${(anchor.minuteOffset / MINUTES_IN_DAY) * 100}%`,
+                                  }}
+                                >
+                                  <div className="flex -translate-y-1 items-center gap-2">
+                                    <div className="h-4 w-4 rounded-full border-2 border-emerald-400 bg-card shadow-sm" />
+                                    <span>{anchor.label}</span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
 
-                            {events.map((event) => {
-                              const minuteOffset = getMinutesFromZdt(event.start);
-                              const topPercent = (minuteOffset / MINUTES_IN_DAY) * 100;
-                              const isActive = expandedEventId === event.id;
+                              {events.map((event) => {
+                                const minuteOffset = getMinutesFromZdt(
+                                  event.start
+                                );
+                                const topPercent =
+                                  (minuteOffset / MINUTES_IN_DAY) * 100;
+                                const isActive = expandedEventId === event.id;
 
-                              return (
-                                <Fragment key={event.id}>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExpandedEventId((prev) => (prev === event.id ? null : event.id))
-                                    }
-                                    className={`absolute left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full border border-card shadow-sm ${
-                                      isActive ? "bg-primary" : "bg-foreground"
-                                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
-                                    style={{ top: `calc(${topPercent}% - 8px)` }}
-                                    aria-label={`Toggle ${event.title}`}
-                                  />
-                                  {isActive ? (
-                                    <div
-                                      className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
-                                      style={{ top: `calc(${topPercent}% - 12px)` }}
-                                    >
-                                      <div className="font-semibold text-foreground">{event.title}</div>
-                                      <p className="text-muted-foreground">{event.summary}</p>
-                                      {onEditEvent ? (
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          className="mt-2"
-                                          onClick={() => onEditEvent(event.id)}
-                                        >
-                                          Edit event
-                                        </Button>
-                                      ) : null}
-                                    </div>
-                                  ) : null}
-                                </Fragment>
-                              );
-                            })}
+                                return (
+                                  <Fragment key={event.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedEventId((prev) =>
+                                          prev === event.id ? null : event.id
+                                        )
+                                      }
+                                      className={`absolute left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full border border-card shadow-sm ${
+                                        isActive
+                                          ? "bg-primary"
+                                          : "bg-foreground"
+                                      } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
+                                      style={{
+                                        top: `calc(${topPercent}% - 8px)`,
+                                      }}
+                                      aria-label={`Toggle ${event.title}`}
+                                    />
+                                    {isActive ? (
+                                      <div
+                                        className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
+                                        style={{
+                                          top: `calc(${topPercent}% - 12px)`,
+                                        }}
+                                      >
+                                        <div className="font-semibold text-foreground">
+                                          {event.title}
+                                        </div>
+                                        <p className="text-muted-foreground">
+                                          {event.summary}
+                                        </p>
+                                        {onEditEvent ? (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="mt-2"
+                                            onClick={() =>
+                                              onEditEvent(event.id)
+                                            }
+                                          >
+                                            Edit event
+                                          </Button>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
+                                  </Fragment>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+                  )}
                 </div>
               </div>
             </div>

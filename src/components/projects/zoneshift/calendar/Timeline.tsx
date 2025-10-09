@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
-import type { ComputedView, CorePlan } from "@/scripts/projects/zoneshift/model";
+import type {
+  ComputedView,
+  CorePlan,
+} from "@/scripts/projects/zoneshift/model";
 import { minutesSinceStartOfDay, rangeDaySuffix } from "../utils/timeSegments";
 
 const PIXELS_PER_MINUTE = 2;
@@ -17,9 +20,23 @@ interface TimelineProps {
   timeStepMinutes: number;
   onEditEvent: (eventId: string) => void;
   onEditAnchor: (anchorId: string) => void;
-  onEventChange: (eventId: string, payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string }) => void;
-  onAnchorChange: (anchorId: string, payload: { instant: Temporal.ZonedDateTime; zone: string }) => void;
-  onAddAnchor: (payload: { kind: "wake" | "sleep"; zoned: Temporal.ZonedDateTime; zone: string }) => void;
+  onEventChange: (
+    eventId: string,
+    payload: {
+      start: Temporal.ZonedDateTime;
+      end?: Temporal.ZonedDateTime;
+      zone: string;
+    }
+  ) => void;
+  onAnchorChange: (
+    anchorId: string,
+    payload: { instant: Temporal.ZonedDateTime; zone: string }
+  ) => void;
+  onAddAnchor: (payload: {
+    kind: "wake" | "sleep";
+    zoned: Temporal.ZonedDateTime;
+    zone: string;
+  }) => void;
 }
 
 interface TimelineAnchor {
@@ -112,8 +129,12 @@ const clampMinutes = (minutes: number) => {
 };
 
 const formatMinutes = (minutes: number) => {
-  const hours = Math.floor(minutes / 60).toString().padStart(2, "0");
-  const remainder = Math.floor(minutes % 60).toString().padStart(2, "0");
+  const hours = Math.floor(minutes / 60)
+    .toString()
+    .padStart(2, "0");
+  const remainder = Math.floor(minutes % 60)
+    .toString()
+    .padStart(2, "0");
   return `${hours}:${remainder}`;
 };
 
@@ -130,25 +151,40 @@ export function Timeline({
 }: TimelineProps) {
   const [dragState, setDragState] = useState<DragState>(null);
   const [visibleRanges, setVisibleRanges] = useState<VisibleRanges>({});
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false });
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+  });
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, TimelineEvent[]>();
-    const daySleepWindows = new Map<string, { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }>();
+    const daySleepWindows = new Map<
+      string,
+      { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }
+    >();
     computed.days.forEach((day) => {
-        const sleepStart = Temporal.ZonedDateTime.from(day.sleepStartZoned).withTimeZone(displayZoneId);
-        const sleepEnd = Temporal.ZonedDateTime.from(day.sleepEndZoned).withTimeZone(displayZoneId);
-        const entry = { start: sleepStart, end: sleepEnd };
-        daySleepWindows.set(day.dateTargetZone, entry);
-        daySleepWindows.set(sleepStart.toPlainDate().toString(), entry);
-        daySleepWindows.set(sleepEnd.toPlainDate().toString(), entry);
+      const sleepStart = Temporal.ZonedDateTime.from(
+        day.sleepStartZoned
+      ).withTimeZone(displayZoneId);
+      const sleepEnd = Temporal.ZonedDateTime.from(
+        day.sleepEndZoned
+      ).withTimeZone(displayZoneId);
+      const entry = { start: sleepStart, end: sleepEnd };
+      daySleepWindows.set(day.dateTargetZone, entry);
+      daySleepWindows.set(sleepStart.toPlainDate().toString(), entry);
+      daySleepWindows.set(sleepEnd.toPlainDate().toString(), entry);
     });
 
     computed.projectedEvents.forEach((event) => {
       try {
-        const start = Temporal.ZonedDateTime.from(event.startZoned).withTimeZone(displayZoneId);
-        const end = event.endZoned ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(displayZoneId) : undefined;
+        const start = Temporal.ZonedDateTime.from(
+          event.startZoned
+        ).withTimeZone(displayZoneId);
+        const end = event.endZoned
+          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(
+              displayZoneId
+            )
+          : undefined;
         const key = start.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
         const sleepWindow = daySleepWindows.get(key);
@@ -158,9 +194,18 @@ export function Timeline({
           const eventEnd = end?.toInstant() ?? start.toInstant();
           const sleepStart = sleepWindow.start.toInstant();
           const sleepEnd = sleepWindow.end.toInstant();
-          conflict = Temporal.Instant.compare(eventStart, sleepEnd) < 0 && Temporal.Instant.compare(eventEnd, sleepStart) > 0;
+          conflict =
+            Temporal.Instant.compare(eventStart, sleepEnd) < 0 &&
+            Temporal.Instant.compare(eventEnd, sleepStart) > 0;
         }
-        bucket.push({ id: event.id, title: event.title, start, end, zone: event.zone, conflict });
+        bucket.push({
+          id: event.id,
+          title: event.title,
+          start,
+          end,
+          zone: event.zone,
+          conflict,
+        });
         mapping.set(key, bucket);
       } catch (error) {
         console.error("Failed to project event for timeline", event.id, error);
@@ -175,7 +220,9 @@ export function Timeline({
       .filter((anchor) => anchorIds.has(anchor.id))
       .map<TimelineAnchor | null>((anchor) => {
         try {
-          const zoned = Temporal.ZonedDateTime.from(anchor.zonedDateTime).withTimeZone(displayZoneId);
+          const zoned = Temporal.ZonedDateTime.from(
+            anchor.zonedDateTime
+          ).withTimeZone(displayZoneId);
           const original = plan.anchors.find((item) => item.id === anchor.id);
           if (!original) {
             return null;
@@ -189,7 +236,11 @@ export function Timeline({
             editable: true,
           } satisfies TimelineAnchor;
         } catch (error) {
-          console.error("Failed to project anchor for timeline", anchor.id, error);
+          console.error(
+            "Failed to project anchor for timeline",
+            anchor.id,
+            error
+          );
           return null;
         }
       })
@@ -207,7 +258,10 @@ export function Timeline({
     return mapping;
   }, [editableAnchors]);
 
-  const calendarDays = useMemo(() => computed.days.map((day) => day.dateTargetZone), [computed.days]);
+  const calendarDays = useMemo(
+    () => computed.days.map((day) => day.dateTargetZone),
+    [computed.days]
+  );
 
   const roundDelta = useCallback(
     (minutes: number) => {
@@ -216,7 +270,7 @@ export function Timeline({
       }
       return Math.round(minutes / timeStepMinutes) * timeStepMinutes;
     },
-    [timeStepMinutes],
+    [timeStepMinutes]
   );
 
   const handlePointerMove = useCallback(
@@ -231,37 +285,69 @@ export function Timeline({
         return;
       }
 
-      if (dragState.type === "event" || dragState.type === "event-resize-start" || dragState.type === "event-resize-end") {
+      if (
+        dragState.type === "event" ||
+        dragState.type === "event-resize-start" ||
+        dragState.type === "event-resize-end"
+      ) {
         let nextStartDisplay = dragState.originalStart;
         let nextEndDisplay = dragState.originalEnd;
 
         if (dragState.type === "event") {
-          nextStartDisplay = dragState.originalStart.add({ minutes: deltaMinutes });
-          nextEndDisplay = dragState.originalEnd?.add({ minutes: deltaMinutes });
+          nextStartDisplay = dragState.originalStart.add({
+            minutes: deltaMinutes,
+          });
+          nextEndDisplay = dragState.originalEnd?.add({
+            minutes: deltaMinutes,
+          });
         } else if (dragState.type === "event-resize-start") {
-          const proposed = dragState.originalStart.add({ minutes: deltaMinutes });
-          if (!nextEndDisplay || Temporal.Instant.compare(proposed.toInstant(), nextEndDisplay.toInstant()) < 0) {
+          const proposed = dragState.originalStart.add({
+            minutes: deltaMinutes,
+          });
+          if (
+            !nextEndDisplay ||
+            Temporal.Instant.compare(
+              proposed.toInstant(),
+              nextEndDisplay.toInstant()
+            ) < 0
+          ) {
             nextStartDisplay = proposed;
           }
         } else if (dragState.type === "event-resize-end" && nextEndDisplay) {
           const proposed = nextEndDisplay.add({ minutes: deltaMinutes });
-          if (Temporal.Instant.compare(proposed.toInstant(), dragState.originalStart.toInstant()) > 0) {
+          if (
+            Temporal.Instant.compare(
+              proposed.toInstant(),
+              dragState.originalStart.toInstant()
+            ) > 0
+          ) {
             nextEndDisplay = proposed;
           }
         }
 
         const startInZone = nextStartDisplay.withTimeZone(dragState.zone);
         const endInZone = nextEndDisplay?.withTimeZone(dragState.zone);
-        onEventChange(dragState.id, { start: startInZone, end: endInZone, zone: dragState.zone });
+        onEventChange(dragState.id, {
+          start: startInZone,
+          end: endInZone,
+          zone: dragState.zone,
+        });
       } else {
-        const nextInstantDisplay = dragState.originalInstant.add({ minutes: deltaMinutes });
+        const nextInstantDisplay = dragState.originalInstant.add({
+          minutes: deltaMinutes,
+        });
         const instantInZone = nextInstantDisplay.withTimeZone(dragState.zone);
-        onAnchorChange(dragState.id, { instant: instantInZone, zone: dragState.zone });
+        onAnchorChange(dragState.id, {
+          instant: instantInZone,
+          zone: dragState.zone,
+        });
       }
 
-      setDragState((prev) => (prev ? { ...prev, lastDelta: deltaMinutes } : prev));
+      setDragState((prev) =>
+        prev ? { ...prev, lastDelta: deltaMinutes } : prev
+      );
     },
-    [dragState, onEventChange, onAnchorChange, roundDelta],
+    [dragState, onEventChange, onAnchorChange, roundDelta]
   );
 
   const handlePointerUp = useCallback(
@@ -271,13 +357,13 @@ export function Timeline({
         releasePointerCaptureSafe(event);
       }
     },
-    [dragState],
+    [dragState]
   );
 
   const beginEventDrag = useCallback(
     (
       pointerEvent: React.PointerEvent<HTMLButtonElement>,
-      item: TimelineEvent,
+      item: TimelineEvent
     ) => {
       setPointerCaptureSafe(pointerEvent);
       setDragState({
@@ -291,14 +377,14 @@ export function Timeline({
         lastDelta: 0,
       });
     },
-    [],
+    []
   );
 
   const beginEventResize = useCallback(
     (
       pointerEvent: React.PointerEvent<HTMLDivElement>,
       item: TimelineEvent,
-      mode: "event-resize-start" | "event-resize-end",
+      mode: "event-resize-start" | "event-resize-end"
     ) => {
       pointerEvent.preventDefault();
       pointerEvent.stopPropagation();
@@ -314,13 +400,13 @@ export function Timeline({
         lastDelta: 0,
       });
     },
-    [],
+    []
   );
 
   const beginAnchorDrag = useCallback(
     (
       pointerEvent: React.PointerEvent<HTMLButtonElement>,
-      anchor: TimelineAnchor,
+      anchor: TimelineAnchor
     ) => {
       setPointerCaptureSafe(pointerEvent);
       setDragState({
@@ -333,17 +419,21 @@ export function Timeline({
         lastDelta: 0,
       });
     },
-    [],
+    []
   );
 
-  const handleScroll = useCallback((isoDate: string, container: HTMLDivElement) => {
-    const start = container.scrollTop / PIXELS_PER_MINUTE;
-    const end = (container.scrollTop + container.clientHeight) / PIXELS_PER_MINUTE;
-    setVisibleRanges((prev) => ({
-      ...prev,
-      [isoDate]: { start, end },
-    }));
-  }, []);
+  const handleScroll = useCallback(
+    (isoDate: string, container: HTMLDivElement) => {
+      const start = container.scrollTop / PIXELS_PER_MINUTE;
+      const end =
+        (container.scrollTop + container.clientHeight) / PIXELS_PER_MINUTE;
+      setVisibleRanges((prev) => ({
+        ...prev,
+        [isoDate]: { start, end },
+      }));
+    },
+    []
+  );
 
   const handleContextMenu = useCallback(
     (isoDate: string, event: React.MouseEvent<HTMLDivElement>) => {
@@ -354,7 +444,10 @@ export function Timeline({
       }
       const rect = container.getBoundingClientRect();
       const offsetY = event.clientY - rect.top + container.scrollTop;
-      const minuteOffset = Math.max(0, Math.min(offsetY / PIXELS_PER_MINUTE, CALENDAR_MINUTES));
+      const minuteOffset = Math.max(
+        0,
+        Math.min(offsetY / PIXELS_PER_MINUTE, CALENDAR_MINUTES)
+      );
       setContextMenu({
         visible: true,
         isoDate,
@@ -363,10 +456,13 @@ export function Timeline({
         minuteOffset,
       });
     },
-    [],
+    []
   );
 
-  const closeContextMenu = useCallback(() => setContextMenu({ visible: false }), []);
+  const closeContextMenu = useCallback(
+    () => setContextMenu({ visible: false }),
+    []
+  );
 
   const handleAddAnchor = useCallback(
     (kind: "wake" | "sleep") => {
@@ -387,7 +483,7 @@ export function Timeline({
       onAddAnchor({ kind, zoned, zone: displayZoneId });
       closeContextMenu();
     },
-    [closeContextMenu, contextMenu, displayZoneId, onAddAnchor],
+    [closeContextMenu, contextMenu, displayZoneId, onAddAnchor]
   );
 
   useEffect(() => {
@@ -408,88 +504,145 @@ export function Timeline({
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/80 p-3 text-xs text-muted-foreground backdrop-blur">
         <div className="flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-primary" /> Sleep window
+          <span className="inline-block h-2 w-2 rounded-full bg-primary" />{" "}
+          Sleep window
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-amber-300" /> Bright window
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-300" />{" "}
+          Bright window
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-primary/60 border border-primary" /> Event conflict
+          <span className="inline-block h-2 w-2 rounded-full bg-primary/60 border border-primary" />{" "}
+          Event conflict
         </div>
       </div>
       <div className="overflow-x-auto">
         <div className="flex min-w-full gap-4">
           {calendarDays.map((isoDate) => {
-            const day = computed.days.find((item) => item.dateTargetZone === isoDate);
+            const day = computed.days.find(
+              (item) => item.dateTargetZone === isoDate
+            );
             if (!day) {
               return null;
             }
             const events = eventsByDay.get(isoDate) ?? [];
             const anchors = anchorsByDay.get(isoDate) ?? [];
             const dateObj = Temporal.PlainDate.from(isoDate);
-            const weekday = dateObj.toLocaleString("en-US", { weekday: "short" });
+            const weekday = dateObj.toLocaleString("en-US", {
+              weekday: "short",
+            });
 
             let sleepSegment: { top: number; height: number } | null = null;
-              const sleepStartDisplay = Temporal.ZonedDateTime.from(day.sleepStartZoned).withTimeZone(displayZoneId);
-              const sleepEndDisplay = Temporal.ZonedDateTime.from(day.sleepEndZoned).withTimeZone(displayZoneId);
-              const sleepStartMinutes = clampMinutes(minutesSinceStartOfDay(sleepStartDisplay));
-              const sleepDurationMinutes = Math.max(
-                Math.round(sleepEndDisplay.since(sleepStartDisplay).total({ unit: "minutes" })),
-                timeStepMinutes,
-              );
-              const sleepEndMinutes = sleepStartMinutes + sleepDurationMinutes;
-              const clampedEnd = Math.min(sleepEndMinutes, CALENDAR_MINUTES);
-              if (clampedEnd > sleepStartMinutes) {
-                sleepSegment = {
-                  top: sleepStartMinutes,
-                  height: clampedEnd - sleepStartMinutes,
-                };
-              }
+            const sleepStartDisplay = Temporal.ZonedDateTime.from(
+              day.sleepStartZoned
+            ).withTimeZone(displayZoneId);
+            const sleepEndDisplay = Temporal.ZonedDateTime.from(
+              day.sleepEndZoned
+            ).withTimeZone(displayZoneId);
+            const sleepStartMinutes = clampMinutes(
+              minutesSinceStartOfDay(sleepStartDisplay)
+            );
+            const sleepDurationMinutes = Math.max(
+              Math.round(
+                sleepEndDisplay
+                  .since(sleepStartDisplay)
+                  .total({ unit: "minutes" })
+              ),
+              timeStepMinutes
+            );
+            const sleepEndMinutes = sleepStartMinutes + sleepDurationMinutes;
+            const clampedEnd = Math.min(sleepEndMinutes, CALENDAR_MINUTES);
+            if (clampedEnd > sleepStartMinutes) {
+              sleepSegment = {
+                top: sleepStartMinutes,
+                height: clampedEnd - sleepStartMinutes,
+              };
+            }
 
             let brightSegment: { top: number; height: number } | null = null;
-              const brightStartDisplay = Temporal.ZonedDateTime.from(day.brightStartZoned).withTimeZone(displayZoneId);
-              const brightEndDisplay = Temporal.ZonedDateTime.from(day.brightEndZoned).withTimeZone(displayZoneId);
-              const brightStartMinutes = clampMinutes(minutesSinceStartOfDay(brightStartDisplay));
-              const brightDurationMinutes = Math.max(
-                Math.round(brightEndDisplay.since(brightStartDisplay).total({ unit: "minutes" })),
-                timeStepMinutes,
-              );
-              const brightEndMinutes = brightStartMinutes + brightDurationMinutes;
-              const clampedBrightEnd = Math.min(brightEndMinutes, CALENDAR_MINUTES);
-              if (clampedBrightEnd > brightStartMinutes) {
-                brightSegment = {
-                  top: brightStartMinutes,
-                  height: clampedBrightEnd - brightStartMinutes,
-                };
-              }
+            const brightStartDisplay = Temporal.ZonedDateTime.from(
+              day.brightStartZoned
+            ).withTimeZone(displayZoneId);
+            const brightEndDisplay = Temporal.ZonedDateTime.from(
+              day.brightEndZoned
+            ).withTimeZone(displayZoneId);
+            const brightStartMinutes = clampMinutes(
+              minutesSinceStartOfDay(brightStartDisplay)
+            );
+            const brightDurationMinutes = Math.max(
+              Math.round(
+                brightEndDisplay
+                  .since(brightStartDisplay)
+                  .total({ unit: "minutes" })
+              ),
+              timeStepMinutes
+            );
+            const brightEndMinutes = brightStartMinutes + brightDurationMinutes;
+            const clampedBrightEnd = Math.min(
+              brightEndMinutes,
+              CALENDAR_MINUTES
+            );
+            if (clampedBrightEnd > brightStartMinutes) {
+              brightSegment = {
+                top: brightStartMinutes,
+                height: clampedBrightEnd - brightStartMinutes,
+              };
+            }
 
-            const visible = visibleRanges[isoDate] ?? { start: 0, end: CALENDAR_MINUTES };
-            const renderStart = Math.max(0, visible.start - VIRTUAL_PADDING_MINUTES);
-            const renderEnd = Math.min(CALENDAR_MINUTES, visible.end + VIRTUAL_PADDING_MINUTES);
+            const visible = visibleRanges[isoDate] ?? {
+              start: 0,
+              end: CALENDAR_MINUTES,
+            };
+            const renderStart = Math.max(
+              0,
+              visible.start - VIRTUAL_PADDING_MINUTES
+            );
+            const renderEnd = Math.min(
+              CALENDAR_MINUTES,
+              visible.end + VIRTUAL_PADDING_MINUTES
+            );
 
             const visibleEvents = events.filter((event) => {
-              const startMinutes = clampMinutes(minutesSinceStartOfDay(event.start));
-              const eventEndDisplay = event.end ?? event.start.add({ minutes: timeStepMinutes });
-              const durationMinutes = Math.max(
-                Math.round(eventEndDisplay.since(event.start).total({ unit: "minutes" })),
-                timeStepMinutes,
+              const startMinutes = clampMinutes(
+                minutesSinceStartOfDay(event.start)
               );
-              const endMinutes = Math.min(startMinutes + durationMinutes, CALENDAR_MINUTES);
+              const eventEndDisplay =
+                event.end ?? event.start.add({ minutes: timeStepMinutes });
+              const durationMinutes = Math.max(
+                Math.round(
+                  eventEndDisplay.since(event.start).total({ unit: "minutes" })
+                ),
+                timeStepMinutes
+              );
+              const endMinutes = Math.min(
+                startMinutes + durationMinutes,
+                CALENDAR_MINUTES
+              );
               return endMinutes >= renderStart && startMinutes <= renderEnd;
             });
 
             const visibleAnchors = anchors.filter((anchor) => {
-              const minutes = clampMinutes(minutesSinceStartOfDay(anchor.zoned));
+              const minutes = clampMinutes(
+                minutesSinceStartOfDay(anchor.zoned)
+              );
               return minutes >= renderStart && minutes <= renderEnd;
             });
 
             const visibleTicks: number[] = [];
-            for (let minute = Math.floor(renderStart / 60) * 60; minute <= renderEnd; minute += 60) {
+            for (
+              let minute = Math.floor(renderStart / 60) * 60;
+              minute <= renderEnd;
+              minute += 60
+            ) {
               visibleTicks.push(minute);
             }
 
             return (
-              <div key={isoDate} className="min-w-[240px] flex-1" data-testid={`timeline-day-${isoDate}`}>
+              <div
+                key={isoDate}
+                className="min-w-[240px] flex-1"
+                data-testid={`timeline-day-${isoDate}`}
+              >
                 <div className="flex items-center justify-between border-b pb-2 text-sm font-medium text-foreground">
                   <span>{weekday}</span>
                   <span>{`${dateObj.month.toString().padStart(2, "0")}/${dateObj.day.toString().padStart(2, "0")}`}</span>
@@ -506,7 +659,9 @@ export function Timeline({
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerUp}
-                  onScroll={(event) => handleScroll(isoDate, event.currentTarget)}
+                  onScroll={(event) =>
+                    handleScroll(isoDate, event.currentTarget)
+                  }
                   onContextMenu={(event) => handleContextMenu(isoDate, event)}
                 >
                   {visibleTicks.map((minute) => (
@@ -542,18 +697,37 @@ export function Timeline({
                   ) : null}
 
                   {visibleEvents.map((item) => {
-                    const startMinutes = clampMinutes(minutesSinceStartOfDay(item.start));
-                    const eventEndDisplay = item.end ?? item.start.add({ minutes: timeStepMinutes });
-                    const rawDurationMinutes = Math.max(
-                      Math.round(eventEndDisplay.since(item.start).total({ unit: "minutes" })),
-                      timeStepMinutes,
+                    const startMinutes = clampMinutes(
+                      minutesSinceStartOfDay(item.start)
                     );
-                    const cappedEndMinutes = Math.min(startMinutes + rawDurationMinutes, CALENDAR_MINUTES);
-                    const durationMinutes = Math.max(cappedEndMinutes - startMinutes, timeStepMinutes);
+                    const eventEndDisplay =
+                      item.end ?? item.start.add({ minutes: timeStepMinutes });
+                    const rawDurationMinutes = Math.max(
+                      Math.round(
+                        eventEndDisplay
+                          .since(item.start)
+                          .total({ unit: "minutes" })
+                      ),
+                      timeStepMinutes
+                    );
+                    const cappedEndMinutes = Math.min(
+                      startMinutes + rawDurationMinutes,
+                      CALENDAR_MINUTES
+                    );
+                    const durationMinutes = Math.max(
+                      cappedEndMinutes - startMinutes,
+                      timeStepMinutes
+                    );
                     const timeSuffix = item.end
                       ? rangeDaySuffix(
-                          item.start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-                          item.end.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+                          item.start.toString({
+                            smallestUnit: "minute",
+                            fractionalSecondDigits: 0,
+                          }),
+                          item.end.toString({
+                            smallestUnit: "minute",
+                            fractionalSecondDigits: 0,
+                          })
                         )
                       : "";
                     return (
@@ -579,23 +753,41 @@ export function Timeline({
                         <div className="text-[10px] text-primary/80">
                           {item.start
                             .toPlainTime()
-                            .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}
+                            .toString({
+                              smallestUnit: "minute",
+                              fractionalSecondDigits: 0,
+                            })}
                           {item.end
                             ? ` → ${item.end
                                 .toPlainTime()
-                                .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}${timeSuffix}`
+                                .toString({
+                                  smallestUnit: "minute",
+                                  fractionalSecondDigits: 0,
+                                })}${timeSuffix}`
                             : ""}
                         </div>
                         {item.end ? (
                           <>
                             <div
                               role="presentation"
-                              onPointerDown={(event) => beginEventResize(event, item, "event-resize-start")}
+                              onPointerDown={(event) =>
+                                beginEventResize(
+                                  event,
+                                  item,
+                                  "event-resize-start"
+                                )
+                              }
                               className="absolute left-0 right-0 top-0 h-2 cursor-ns-resize"
                             />
                             <div
                               role="presentation"
-                              onPointerDown={(event) => beginEventResize(event, item, "event-resize-end")}
+                              onPointerDown={(event) =>
+                                beginEventResize(
+                                  event,
+                                  item,
+                                  "event-resize-end"
+                                )
+                              }
                               className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize"
                             />
                           </>
@@ -605,14 +797,19 @@ export function Timeline({
                   })}
 
                   {visibleAnchors.map((anchor) => {
-                    const minutes = clampMinutes(minutesSinceStartOfDay(anchor.zoned));
-                    const anchorKindLabel = anchor.kind === "wake" ? "Wake time" : "Sleep time";
+                    const minutes = clampMinutes(
+                      minutesSinceStartOfDay(anchor.zoned)
+                    );
+                    const anchorKindLabel =
+                      anchor.kind === "wake" ? "Wake time" : "Sleep time";
                     return (
                       <button
                         key={anchor.id}
                         type="button"
                         onClick={() => onEditAnchor(anchor.id)}
-                        onPointerDown={(event) => beginAnchorDrag(event, anchor)}
+                        onPointerDown={(event) =>
+                          beginAnchorDrag(event, anchor)
+                        }
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
@@ -620,17 +817,26 @@ export function Timeline({
                         style={{ top: `${minutes * PIXELS_PER_MINUTE - 10}px` }}
                         aria-label={`${anchorKindLabel} at ${anchor.zoned
                           .toPlainTime()
-                          .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}`}
+                          .toString({
+                            smallestUnit: "minute",
+                            fractionalSecondDigits: 0,
+                          })}`}
                       >
                         <span className="h-2 w-2 rounded-full bg-primary" />
                         <span>
-                          {anchorKindLabel} @
-                          {" "}
+                          {anchorKindLabel} @{" "}
                           {anchor.zoned
                             .toPlainTime()
-                            .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}
+                            .toString({
+                              smallestUnit: "minute",
+                              fractionalSecondDigits: 0,
+                            })}
                         </span>
-                        {anchor.note ? <span className="text-muted-foreground">{anchor.note}</span> : null}
+                        {anchor.note ? (
+                          <span className="text-muted-foreground">
+                            {anchor.note}
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
