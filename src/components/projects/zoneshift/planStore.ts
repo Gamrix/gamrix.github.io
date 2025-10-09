@@ -50,8 +50,6 @@ const setState = (updater: (prev: PlanStoreState) => PlanStoreState) => {
   emit();
 };
 
-const selectDefault = <T,>(selector: (value: PlanStoreState) => T) => selector(state);
-
 export const planStore = {
   getState: () => state,
   setState,
@@ -64,23 +62,7 @@ export const planStore = {
 };
 
 export const usePlanStore = <T,>(selector: (state: PlanStoreState) => T): T =>
-  useSyncExternalStore(planStore.subscribe, () => selector(state), () => selectDefault(selector));
-
-const makeEventId = () =>
-  (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `event-${Date.now()}`);
-
-const makeAnchorId = () =>
-  (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `anchor-${Date.now()}`);
-
-const clampMinutesToDay = (minute: number) => Math.max(0, Math.min(minute, 24 * 60));
-
-const snapMinutes = (minute: number, step: number) => {
-  const snapped = Math.round(minute / step) * step;
-  return clampMinutesToDay(snapped);
-};
-
-const moveInstantToZone = (instantIso: string, fromZone: string, toZone: string) =>
-  Temporal.Instant.from(instantIso).toZonedDateTimeISO(fromZone).withTimeZone(toZone).toInstant().toString();
+  useSyncExternalStore(planStore.subscribe, () => selector(state), () => selector(state));
 
 export const planActions = {
   setViewMode: (mode: ViewMode) =>
@@ -145,19 +127,26 @@ export const planActions = {
       activeEventId: prev.activeEventId === eventId ? null : prev.activeEventId,
     } satisfies PlanStoreState)),
   addEvent: (event: Omit<EventItem, "id"> & { id?: string }) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        events: [
-          ...prev.plan.events,
-          {
-            ...event,
-            id: event.id ?? makeEventId(),
-          },
-        ],
-      },
-    } satisfies PlanStoreState)),
+    setState((prev) => {
+      const nextId =
+        event.id ??
+        (typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `event-${Date.now()}`);
+      return {
+        ...prev,
+        plan: {
+          ...prev.plan,
+          events: [
+            ...prev.plan.events,
+            {
+              ...event,
+              id: nextId,
+            },
+          ],
+        },
+      } satisfies PlanStoreState;
+    }),
   moveEvent: (
     eventId: string,
     payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string },
@@ -172,7 +161,8 @@ export const planActions = {
         day: startInZone.day,
       });
       const startMinutesRaw = startInZone.since(startOfDay).total({ unit: "minutes" });
-      const startMinutes = snapMinutes(startMinutesRaw, stepMinutes);
+      const startSnapped = Math.round(startMinutesRaw / stepMinutes) * stepMinutes;
+      const startMinutes = Math.max(0, Math.min(startSnapped, 24 * 60));
       const snappedStart = startOfDay.add({ minutes: startMinutes });
       let endIso: string | undefined;
       if (event.end && payload.end) {
@@ -184,7 +174,8 @@ export const planActions = {
           day: endInZone.day,
         });
         const endMinutesRaw = endInZone.since(endOfDay).total({ unit: "minutes" });
-        const endMinutes = snapMinutes(endMinutesRaw, stepMinutes);
+        const endSnapped = Math.round(endMinutesRaw / stepMinutes) * stepMinutes;
+        const endMinutes = Math.max(0, Math.min(endSnapped, 24 * 60));
         const snappedEnd = endOfDay.add({ minutes: Math.max(endMinutes, startMinutes + stepMinutes) });
         endIso = snappedEnd.toInstant().toString();
       }
@@ -217,22 +208,28 @@ export const planActions = {
   addAnchorAt: (
     payload: { kind: AnchorPoint["kind"]; zoned: Temporal.ZonedDateTime; zone: string; note?: string },
   ) =>
-    setState((prev) => ({
-      ...prev,
-      plan: {
-        ...prev.plan,
-        anchors: [
-          ...prev.plan.anchors,
-          {
-            id: makeAnchorId(),
-            kind: payload.kind,
-            zone: payload.zone,
-            note: payload.note,
-            instant: payload.zoned.withTimeZone(payload.zone).toInstant().toString(),
-          },
-        ],
-      },
-    } satisfies PlanStoreState)),
+    setState((prev) => {
+      const anchorId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `anchor-${Date.now()}`;
+      return {
+        ...prev,
+        plan: {
+          ...prev.plan,
+          anchors: [
+            ...prev.plan.anchors,
+            {
+              id: anchorId,
+              kind: payload.kind,
+              zone: payload.zone,
+              note: payload.note,
+              instant: payload.zoned.withTimeZone(payload.zone).toInstant().toString(),
+            },
+          ],
+        },
+      } satisfies PlanStoreState;
+    }),
   moveAnchor: (
     anchorId: string,
     payload: { instant: Temporal.ZonedDateTime; zone: string },
@@ -247,7 +244,8 @@ export const planActions = {
         day: instantInZone.day,
       });
       const totalMinutesRaw = instantInZone.since(startOfDay).total({ unit: "minutes" });
-      const totalMinutes = snapMinutes(totalMinutesRaw, stepMinutes);
+      const totalSnapped = Math.round(totalMinutesRaw / stepMinutes) * stepMinutes;
+      const totalMinutes = Math.max(0, Math.min(totalSnapped, 24 * 60));
       const snapped = startOfDay.add({ minutes: totalMinutes });
       return {
         ...anchor,
@@ -272,7 +270,11 @@ export const planActions = {
   projectInstantToDisplay: (iso: string): string => {
     const plan = state.plan;
     const displayZone = plan.prefs?.displayZone === "home" ? plan.params.homeZone : plan.params.targetZone;
-    return moveInstantToZone(iso, plan.params.targetZone, displayZone);
+    return Temporal.Instant.from(iso)
+      .toZonedDateTimeISO(plan.params.targetZone)
+      .withTimeZone(displayZone)
+      .toInstant()
+      .toString();
   },
 };
 

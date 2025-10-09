@@ -2,19 +2,17 @@ import { Temporal } from "@js-temporal/polyfill";
 
 export const MINUTES_IN_DAY = 24 * 60;
 
-export const toTimeLabel = (value: Temporal.ZonedDateTime) =>
-  value.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-
-const pluralise = (value: number, unit: string) => `${value} ${unit}${value === 1 ? "" : "s"}`;
-
 export const describeDayDelta = (difference: number) => {
   if (difference === 0) {
     return "";
   }
   if (difference > 0) {
-    return ` (+${pluralise(difference, "day")})`;
+    const unit = difference === 1 ? "day" : "days";
+    return ` (+${difference} ${unit})`;
   }
-  return ` (-${pluralise(Math.abs(difference), "day")})`;
+  const magnitude = Math.abs(difference);
+  const unit = magnitude === 1 ? "day" : "days";
+  return ` (-${magnitude} ${unit})`;
 };
 
 export const rangeDaySuffix = (startIso: string, endIso: string) => {
@@ -33,8 +31,12 @@ export const formatRangeLabel = (
   const end = Temporal.ZonedDateTime.from(endIso);
   const separator = options?.separator ?? " – ";
 
-  const startLabel = toTimeLabel(start);
-  const endLabel = toTimeLabel(end);
+  const startLabel = start
+    .toPlainTime()
+    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+  const endLabel = end
+    .toPlainTime()
+    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
   const instantComparison = Temporal.Instant.compare(end.toInstant(), start.toInstant());
   const suffix = rangeDaySuffix(startIso, endIso);

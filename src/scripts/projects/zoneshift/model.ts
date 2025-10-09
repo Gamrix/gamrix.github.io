@@ -58,8 +58,6 @@ export const CorePlanSchema = z.object({
 
 export type CorePlan = z.infer<typeof CorePlanSchema>;
 
-export const parseCorePlan = (input: unknown): CorePlan => CorePlanSchema.parse(input);
-
 export interface DayComputed {
   dateTargetZone: string;
   changeThisDayHours: number;
@@ -112,20 +110,6 @@ interface ShiftStrategy {
 
 const MINUTE = 60;
 const NANOS_PER_HOUR = MINUTE * MINUTE * 1_000_000_000;
-
-const clamp = (value: number, lower: number, upper: number) =>
-  Math.min(Math.max(value, lower), upper);
-
-const hoursToMinutes = (hours: number) => Math.round(hours * MINUTE);
-
-const toPlainDate = (value: string | Temporal.PlainDate) =>
-  typeof value === "string" ? Temporal.PlainDate.from(value) : value;
-
-const formatTime = (zdt: Temporal.ZonedDateTime) =>
-  zdt.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-
-const addMinutes = (zdt: Temporal.ZonedDateTime, minutes: number) =>
-  minutes === 0 ? zdt : zdt.add({ minutes });
 
 const computeZoneDeltaHours = (core: CorePlan, startInstant: Temporal.Instant) => {
   const targetOffset = startInstant.toZonedDateTimeISO(core.params.targetZone).offsetNanoseconds;
@@ -278,9 +262,6 @@ const computeWakeSchedule = (
   return wakeMap;
 };
 
-const durationTotalMinutes = (duration: Temporal.Duration) =>
-  duration.total({ unit: "minutes" });
-
 export function interpolateDailyWakeTimes(
   startWake: Temporal.ZonedDateTime,
   endWake: Temporal.ZonedDateTime,
@@ -295,7 +276,9 @@ export function interpolateDailyWakeTimes(
     return [startWake];
   }
 
-  const plainDates = dates.map(toPlainDate);
+  const plainDates = dates.map((value) =>
+    typeof value === "string" ? Temporal.PlainDate.from(value) : value,
+  );
   const intervals = plainDates.length - 1;
   const baseMinutes = intervals * 24 * MINUTE;
   const totalMinutes = (
@@ -303,9 +286,9 @@ export function interpolateDailyWakeTimes(
   ) / (MINUTE * 1000);
   const shiftMinutes = totalMinutes - baseMinutes;
   const rawPerDay = shiftMinutes / intervals;
-  const maxLater = hoursToMinutes(policy.maxLaterPerDay);
-  const maxEarlier = -hoursToMinutes(policy.maxEarlierPerDay);
-  const stepMinutes = clamp(rawPerDay, maxEarlier, maxLater);
+  const maxLater = Math.round(policy.maxLaterPerDay * MINUTE);
+  const maxEarlier = -Math.round(policy.maxEarlierPerDay * MINUTE);
+  const stepMinutes = Math.min(Math.max(rawPerDay, maxEarlier), maxLater);
 
   const result: Temporal.ZonedDateTime[] = [];
   let current = startWake;
@@ -400,24 +383,20 @@ const projectAnchor = (anchor: AnchorPoint, zone: ZoneId) => {
   };
 };
 
-const determineDisplayZone = (core: CorePlan): ZoneId =>
-  core.prefs?.displayZone === "home" ? core.params.homeZone : core.params.targetZone;
-
 export function makeDefaultShiftAnchor(core: CorePlan): AnchorPoint {
   const targetZone = core.params.targetZone;
   const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
   const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
-  const sleepDurationMinutes = hoursToMinutes(core.params.sleepHours);
+  const sleepDurationMinutes = Math.round(core.params.sleepHours * MINUTE);
   const sleepDuration = Temporal.Duration.from({ minutes: sleepDurationMinutes });
   const startInstant = startSleep.toInstant();
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
 
   const shiftedStartSleep = startSleep.add({ days: strategy.daysNeeded });
-  const alignedSleepStart = addMinutes(
-    shiftedStartSleep,
-    hoursToMinutes(strategy.shiftAmountHours),
-  );
+  const alignedSleepStart = shiftedStartSleep.add({
+    minutes: Math.round(strategy.shiftAmountHours * MINUTE),
+  });
   const alignedWake = alignedSleepStart.add(sleepDuration);
 
   return {
@@ -438,13 +417,14 @@ export function projectInstant(iso: string, zone: ZoneId) {
 
 export function computePlan(core: CorePlan): ComputedView {
   const targetZone = core.params.targetZone;
-  const sleepDurationMinutes = hoursToMinutes(core.params.sleepHours);
+  const sleepDurationMinutes = Math.round(core.params.sleepHours * MINUTE);
   const sleepDuration = Temporal.Duration.from({ minutes: sleepDurationMinutes });
   const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
   const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
   const initialWake = startSleep.add(sleepDuration);
   const defaultAnchor = core.defaultShiftAnchor ?? makeDefaultShiftAnchor(core);
-  const displayZone = determineDisplayZone(core);
+  const displayZone =
+    core.prefs?.displayZone === "home" ? core.params.homeZone : core.params.targetZone;
 
   const anchors: AnchorPoint[] = [
     defaultAnchor,
@@ -525,41 +505,45 @@ export function computePlan(core: CorePlan): ComputedView {
     let changeHours = 0;
     if (previousSleepStart) {
       const baseline = previousSleepStart.add({ days: 1 });
-      const diffMinutes = durationTotalMinutes(sleepStart.since(baseline));
+      const diffMinutes = sleepStart.since(baseline).total({ unit: "minutes" });
       changeHours = diffMinutes / MINUTE;
     }
 
     perDayShifts.push(changeHours);
 
-    const sleepStartDisplayIso = sleepStartDisplay.toString({
-      smallestUnit: "minute",
-      fractionalSecondDigits: 0,
-    });
-    const sleepEndDisplayIso = wakeDisplay.toString({
-      smallestUnit: "minute",
-      fractionalSecondDigits: 0,
-    });
-    const brightStartDisplayIso = brightStartDisplay.toString({
-      smallestUnit: "minute",
-      fractionalSecondDigits: 0,
-    });
-    const brightEndDisplayIso = brightEndDisplay.toString({
-      smallestUnit: "minute",
-      fractionalSecondDigits: 0,
-    });
+    const isoOptions = { smallestUnit: "minute", fractionalSecondDigits: 0 } as const;
+    const sleepStartDisplayIso = sleepStartDisplay.toString(isoOptions);
+    const sleepEndDisplayIso = wakeDisplay.toString(isoOptions);
+    const brightStartDisplayIso = brightStartDisplay.toString(isoOptions);
+    const brightEndDisplayIso = brightEndDisplay.toString(isoOptions);
+    const sleepStartLocal = sleepStartDisplay
+      .toPlainTime()
+      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+    const sleepEndLocal = wakeDisplay
+      .toPlainTime()
+      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+    const brightStartLocal = brightStartDisplay
+      .toPlainTime()
+      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+    const brightEndLocal = brightEndDisplay
+      .toPlainTime()
+      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+    const wakeTimeLocal = wakeDisplay
+      .toPlainTime()
+      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
     days.push({
       dateTargetZone: key,
       changeThisDayHours: changeHours,
-      sleepStartLocal: formatTime(sleepStartDisplay),
-      sleepEndLocal: formatTime(wakeDisplay),
+      sleepStartLocal,
+      sleepEndLocal,
       sleepStartZoned: sleepStartDisplayIso,
       sleepEndZoned: sleepEndDisplayIso,
-      brightStartLocal: formatTime(brightStartDisplay),
-      brightEndLocal: formatTime(brightEndDisplay),
+      brightStartLocal,
+      brightEndLocal,
       brightStartZoned: brightStartDisplayIso,
       brightEndZoned: brightEndDisplayIso,
-      wakeTimeLocal: formatTime(wakeDisplay),
+      wakeTimeLocal,
       anchors: anchorMap.get(key)?.map((anchor) => ({ ...anchor })) ?? [],
     });
 

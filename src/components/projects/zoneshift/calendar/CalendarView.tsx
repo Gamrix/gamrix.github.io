@@ -30,9 +30,27 @@ type CalendarAddAnchorHandler = (payload: {
   zone: string;
 }) => void;
 
-const noopEventChange: CalendarEventChangeHandler = () => undefined;
-const noopAnchorChange: CalendarAnchorChangeHandler = () => undefined;
-const noopAddAnchor: CalendarAddAnchorHandler = () => undefined;
+function noopEventChange(
+  _eventId: string,
+  _payload: { start: Temporal.ZonedDateTime; end?: Temporal.ZonedDateTime; zone: string },
+): void {
+  return;
+}
+
+function noopAnchorChange(
+  _anchorId: string,
+  _payload: { instant: Temporal.ZonedDateTime; zone: string },
+): void {
+  return;
+}
+
+function noopAddAnchor(_payload: {
+  kind: "wake" | "sleep";
+  zoned: Temporal.ZonedDateTime;
+  zone: string;
+}): void {
+  return;
+}
 
 export function CalendarView({
   plan,

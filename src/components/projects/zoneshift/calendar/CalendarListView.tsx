@@ -28,9 +28,6 @@ interface CalendarAnchor {
   editable: boolean;
 }
 
-const formatTime = (value: Temporal.ZonedDateTime) =>
-  value.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-
 export function CalendarListView({
   plan,
   computed,
@@ -156,7 +153,10 @@ export function CalendarListView({
                     disabled={!anchor.editable}
                   >
                     <span className="font-medium text-foreground">
-                      {anchor.kind === "wake" ? "Wake time" : "Sleep time"} @ {formatTime(anchor.zoned)}
+                      {anchor.kind === "wake" ? "Wake time" : "Sleep time"} @
+                      {anchor.zoned
+                        .toPlainTime()
+                        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })}
                     </span>
                     {anchor.note ? (
                       <span className="ml-2 truncate text-xs text-muted-foreground">{anchor.note}</span>
@@ -172,8 +172,14 @@ export function CalendarListView({
                 <p className="text-xs text-muted-foreground">No events scheduled.</p>
               ) : (
                 events.map((event) => {
-                  const startLabel = formatTime(event.start);
-                  const endLabel = event.end ? formatTime(event.end) : null;
+                  const startLabel = event.start
+                    .toPlainTime()
+                    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+                  const endLabel = event.end
+                    ? event.end
+                        .toPlainTime()
+                        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
+                    : null;
                   const rangeLabel = endLabel
                     ? formatRangeLabel(
                         event.start.toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),

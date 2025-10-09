@@ -38,13 +38,6 @@ const formatProjectedTime = (value: string) => {
   return `${month}/${day} ${time}`;
 };
 
-const clampMinutesToDay = (minute: number) => Math.max(0, Math.min(minute, 24 * 60));
-
-const snapMinutes = (minute: number, step: number) => clampMinutesToDay(Math.round(minute / step) * step);
-
-const makeAnchorId = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `anchor-${Date.now()}`;
-
 const ProjectedEvents = ({
   computed,
 }: {
@@ -164,7 +157,8 @@ function ZoneShiftDemoComponent() {
           day: startInZone.day,
         });
         const startMinutesRaw = startInZone.since(startOfDay).total({ unit: "minutes" });
-        const startMinutes = snapMinutes(startMinutesRaw, step);
+        const startSnapped = Math.round(startMinutesRaw / step) * step;
+        const startMinutes = Math.max(0, Math.min(startSnapped, 24 * 60));
         const snappedStart = startOfDay.add({ minutes: startMinutes });
 
         let nextEndIso = event.end;
@@ -177,7 +171,8 @@ function ZoneShiftDemoComponent() {
             day: endInZone.day,
           });
           const endMinutesRaw = endInZone.since(endOfDay).total({ unit: "minutes" });
-          const endMinutes = snapMinutes(endMinutesRaw, step);
+          const endSnapped = Math.round(endMinutesRaw / step) * step;
+          const endMinutes = Math.max(0, Math.min(endSnapped, 24 * 60));
           const snappedEnd = endOfDay.add({ minutes: Math.max(endMinutes, startMinutes + step) });
           nextEndIso = snappedEnd.toInstant().toString();
         }
@@ -210,7 +205,8 @@ function ZoneShiftDemoComponent() {
           day: instantInZone.day,
         });
         const totalMinutesRaw = instantInZone.since(startOfDay).total({ unit: "minutes" });
-        const totalMinutes = snapMinutes(totalMinutesRaw, step);
+        const totalSnapped = Math.round(totalMinutesRaw / step) * step;
+        const totalMinutes = Math.max(0, Math.min(totalSnapped, 24 * 60));
         const snapped = startOfDay.add({ minutes: totalMinutes });
         return {
           ...anchor,
@@ -224,7 +220,10 @@ function ZoneShiftDemoComponent() {
   const handleAddAnchor = (
     payload: { kind: "wake" | "sleep"; zoned: Temporal.ZonedDateTime; zone: string },
   ) => {
-    const newAnchorId = makeAnchorId();
+    const newAnchorId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `anchor-${Date.now()}`;
     const instantIso = payload.zoned.withTimeZone(payload.zone).toInstant().toString();
     setPlanState((prev) => ({
       ...prev,

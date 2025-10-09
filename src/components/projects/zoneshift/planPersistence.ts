@@ -2,7 +2,7 @@ import { CorePlanSchema, type CorePlan } from "@/scripts/projects/zoneshift/mode
 
 export const STORAGE_KEY = "zoneshift-core-plan";
 
-const withPlanDefaults = (plan: CorePlan): CorePlan => {
+export const normalizePlan = (plan: CorePlan): CorePlan => {
   const prefs = plan.prefs ?? {};
   return {
     ...plan,
@@ -13,24 +13,22 @@ const withPlanDefaults = (plan: CorePlan): CorePlan => {
   };
 };
 
-export const normalizePlan = (plan: CorePlan): CorePlan => withPlanDefaults(plan);
-
 export const loadPlanFromStorage = (fallback: CorePlan): CorePlan => {
   if (typeof window === "undefined") {
-    return withPlanDefaults(fallback);
+    return normalizePlan(fallback);
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    return withPlanDefaults(fallback);
+    return normalizePlan(fallback);
   }
 
   try {
     const parsed = JSON.parse(raw);
-    return withPlanDefaults(CorePlanSchema.parse(parsed));
+    return normalizePlan(CorePlanSchema.parse(parsed));
   } catch (error) {
     console.error("Failed to load plan from storage", error);
-    return withPlanDefaults(fallback);
+    return normalizePlan(fallback);
   }
 };
 
@@ -40,7 +38,7 @@ export const persistPlanToStorage = (plan: CorePlan) => {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(withPlanDefaults(plan)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizePlan(plan)));
   } catch (error) {
     console.error("Failed to persist plan", error);
   }

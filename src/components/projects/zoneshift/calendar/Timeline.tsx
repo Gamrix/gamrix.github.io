@@ -101,11 +101,21 @@ const releasePointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   }
 };
 
-const clampMinutes = (minutes: number) => Math.max(0, Math.min(minutes, CALENDAR_MINUTES));
+const clampMinutes = (minutes: number) => {
+  if (minutes < 0) {
+    return 0;
+  }
+  if (minutes > CALENDAR_MINUTES) {
+    return CALENDAR_MINUTES;
+  }
+  return minutes;
+};
 
-const formatMinutes = (minutes: number) => `${Math.floor(minutes / 60).toString().padStart(2, "0")}:${Math.floor(minutes % 60)
-  .toString()
-  .padStart(2, "0")}`;
+const formatMinutes = (minutes: number) => {
+  const hours = Math.floor(minutes / 60).toString().padStart(2, "0");
+  const remainder = Math.floor(minutes % 60).toString().padStart(2, "0");
+  return `${hours}:${remainder}`;
+};
 
 export function Timeline({
   plan,
