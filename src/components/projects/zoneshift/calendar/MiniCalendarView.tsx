@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,9 @@ const TIMELINE_HEIGHT = "min(26rem, 70vh)";
 const HEADER_HEIGHT = "2.5rem";
 const AXIS_WIDTH = "clamp(2.25rem, 12vw, 3.5rem)";
 const TOTAL_HEIGHT = `calc(${TIMELINE_HEIGHT} + ${HEADER_HEIGHT})`;
+const MIN_DAYS_PER_PAGE = 7;
+const DAY_COLUMN_WIDTH_PX = 50;
+const DAY_GAP_PX = 16;
 
 const getMinutesFromZdt = (value: Temporal.ZonedDateTime) => {
   return minutesSinceStartOfDay(value);
@@ -104,6 +107,13 @@ export function MiniCalendarView({
 }: MiniCalendarViewProps) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
+  const [daysPerPage, setDaysPerPage] = useState(MIN_DAYS_PER_PAGE);
+  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const setScrollContainerRef = useCallback((node: HTMLDivElement | null) => {
+    setScrollContainer(node);
+  }, []);
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, MiniEvent[]>();
@@ -188,6 +198,51 @@ export function MiniCalendarView({
     return markers;
   }, []);
 
+  useEffect(() => {
+    const totalDays = timelineByDay.length;
+    if (totalDays === 0) {
+      setDaysPerPage(MIN_DAYS_PER_PAGE);
+      setContainerWidth(0);
+      return;
+    }
+
+    const calculateLayout = () => {
+      const width = scrollContainer?.clientWidth ?? 0;
+      setContainerWidth(width);
+
+      const rawCount =
+        width > 0
+          ? Math.floor((width + DAY_GAP_PX) / (DAY_COLUMN_WIDTH_PX + DAY_GAP_PX))
+          : MIN_DAYS_PER_PAGE;
+      const desired = Math.max(MIN_DAYS_PER_PAGE, rawCount || MIN_DAYS_PER_PAGE);
+      const clamped = Math.min(desired, totalDays);
+
+      setDaysPerPage((previous) => (previous === clamped ? previous : clamped));
+    };
+
+    calculateLayout();
+
+    if (!scrollContainer) {
+      return;
+    }
+
+    if (typeof ResizeObserver === "function") {
+      const observer = new ResizeObserver(calculateLayout);
+      observer.observe(scrollContainer);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", calculateLayout);
+    return () => window.removeEventListener("resize", calculateLayout);
+  }, [scrollContainer, timelineByDay.length]);
+
+  useEffect(() => {
+    setPageIndex((prev) => {
+      const maxPage = Math.max(0, Math.ceil(timelineByDay.length / daysPerPage) - 1);
+      return Math.min(prev, maxPage);
+    });
+  }, [daysPerPage, timelineByDay.length]);
+
   if (timelineByDay.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -196,11 +251,19 @@ export function MiniCalendarView({
     );
   }
 
-  const DAYS_PER_PAGE = 7;
-  const startIndex = pageIndex * DAYS_PER_PAGE;
-  const visibleTimeline = timelineByDay.slice(startIndex, startIndex + DAYS_PER_PAGE);
+  const startIndex = pageIndex * daysPerPage;
+  const visibleTimeline = timelineByDay.slice(startIndex, startIndex + daysPerPage);
   const hasPrevious = startIndex > 0;
-  const hasNext = startIndex + DAYS_PER_PAGE < timelineByDay.length;
+  const hasNext = startIndex + daysPerPage < timelineByDay.length;
+  const maxPageIndex = Math.max(0, Math.ceil(timelineByDay.length / daysPerPage) - 1);
+  const visibleCount = visibleTimeline.length;
+  const dayColumnWidth =
+    visibleCount > 0 && containerWidth > 0
+      ? Math.max(
+          DAY_COLUMN_WIDTH_PX,
+          (containerWidth - Math.max(0, visibleCount - 1) * DAY_GAP_PX) / visibleCount,
+        )
+      : DAY_COLUMN_WIDTH_PX;
 
   return (
     <div className="space-y-4">
@@ -230,7 +293,7 @@ export function MiniCalendarView({
               onClick={() => setPageIndex((prev) => Math.max(prev - 1, 0))}
               disabled={!hasPrevious}
             >
-              Prev 7 days
+              Prev {daysPerPage} days
             </Button>
             <Button
               type="button"
@@ -238,13 +301,11 @@ export function MiniCalendarView({
               variant="outline"
               className="h-7 px-2 text-xs"
               onClick={() =>
-                setPageIndex((prev) =>
-                  hasNext ? Math.min(prev + 1, Math.ceil(timelineByDay.length / DAYS_PER_PAGE) - 1) : prev,
-                )
+                setPageIndex((prev) => (hasNext ? Math.min(prev + 1, maxPageIndex) : prev))
               }
               disabled={!hasNext}
             >
-              Next 7 days
+              Next {daysPerPage} days
             </Button>
           </div>
         </div>
@@ -296,7 +357,7 @@ export function MiniCalendarView({
               })}
             </div>
             <div className="absolute left-0 right-0 top-0 bottom-0 flex flex-col">
-              <div className="flex-1 overflow-x-auto pt-2">
+              <div ref={setScrollContainerRef} className="flex-1 overflow-x-auto pt-2">
                 <div className="flex h-full gap-4">
                   {visibleTimeline.map(({ day, segments, events, wakeAnchors }) => {
                     const isoDate = Temporal.PlainDate.from(day.dateTargetZone);
@@ -304,7 +365,14 @@ export function MiniCalendarView({
                     const dateLabel = isoDate.toLocaleString("en-US", { month: "short", day: "numeric" });
 
                     return (
-                      <div key={day.dateTargetZone} className="relative h-full w-28">
+                      <div
+                        key={day.dateTargetZone}
+                        className="relative h-full flex-shrink-0"
+                        style={{
+                          width: `${dayColumnWidth}px`,
+                          minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
+                        }}
+                      >
                         <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
                           <div className="font-semibold text-foreground">{weekday}</div>
                           <div>{dateLabel}</div>
