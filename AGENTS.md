@@ -48,6 +48,6 @@
 
 - After completing the task but before returning to the user,
   think through what items you have spotted that could be a
-  good next task to work on.
+  good next task for you, the agent to work on.
 - Give back to the user concise 1 line descriptions of the best 3 next
-  tasks to work on as part of your final response.
+  tasks for you, the agent to work on next as part of your final response.
