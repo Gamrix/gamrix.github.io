@@ -6,7 +6,6 @@ import {
   computePlan,
   CorePlanSchema,
   interpolateDailyWakeTimes,
-  makeDefaultShiftAnchor,
   type CorePlan,
 } from "./model";
 
@@ -89,23 +88,6 @@ describe("CorePlanSchema", () => {
     }
 
     expect(missing.length).toBeGreaterThan(0);
-  });
-});
-
-describe("makeDefaultShiftAnchor", () => {
-  it("creates a wake anchor once the timezone delta has been absorbed", () => {
-    const anchor = makeDefaultShiftAnchor(basePlan());
-    expect(anchor.kind).toBe("wake");
-    expect(anchor.zone).toBe("Asia/Taipei");
-    const anchorZdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
-      anchor.zone
-    );
-    expect(anchorZdt.toPlainDate().toString()).toBe("2024-10-24");
-    expect(
-      anchorZdt
-        .toPlainTime()
-        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
-    ).toBe("09:30");
   });
 });
 

@@ -323,7 +323,10 @@ export function interpolateDailyWakeTimes(
   result.push(current);
 
   for (let i = 1; i < intervals; i += 1) {
-    current = current.add({ days: 1 ,  minutes: stepMinutes});
+    current = current.add({ days: 1 });
+    if (stepMinutes !== 0) {
+      current = current.add({ minutes: stepMinutes });
+    }
     result.push(current);
   }
 
@@ -386,33 +389,6 @@ const projectAnchor = (anchor: AnchorPoint, zone: ZoneId) => {
   };
 };
 
-export function makeDefaultShiftAnchor(core: CorePlan): AnchorPoint {
-  const targetZone = core.params.targetZone;
-  const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
-  const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
-  const sleepDurationMinutes = Math.round(core.params.sleepHours * MINUTE);
-  const sleepDuration = Temporal.Duration.from({
-    minutes: sleepDurationMinutes,
-  });
-  const startInstant = startSleep.toInstant();
-  const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
-  const strategy = normalizeShift(core.params, totalDeltaHours);
-
-  const shiftedStartSleep = startSleep.add({ days: strategy.daysNeeded });
-  const alignedSleepStart = shiftedStartSleep.add({
-    minutes: Math.round(strategy.shiftAmountHours * MINUTE),
-  });
-  const alignedWake = alignedSleepStart.add(sleepDuration);
-
-  return {
-    id: "default-shift-anchor",
-    kind: "wake",
-    instant: alignedWake.toInstant().toString(),
-    zone: targetZone,
-    note: "Auto-generated alignment anchor",
-  };
-}
-
 export function projectInstant(iso: string, zone: ZoneId) {
   return toRoundedZonedDateTime(iso, zone, zone).toString({
     smallestUnit: "minute",
@@ -428,8 +404,23 @@ export function computePlan(core: CorePlan): ComputedView {
   });
   const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
   const startSleep = startSleepInstant.toZonedDateTimeISO(targetZone);
+  const startInstant = startSleep.toInstant();
+  const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
+  const strategy = normalizeShift(core.params, totalDeltaHours);
   const initialWake = startSleep.add(sleepDuration);
-  const defaultAnchor = core.defaultShiftAnchor ?? makeDefaultShiftAnchor(core);
+  const shiftedStartSleep = startSleep.add({ days: strategy.daysNeeded });
+  const alignedSleepStart = shiftedStartSleep.add({
+    minutes: Math.round(strategy.shiftAmountHours * MINUTE),
+  });
+  const alignedWake = alignedSleepStart.add(sleepDuration);
+  const fallbackDefaultAnchor: AnchorPoint = {
+    id: "default-shift-anchor",
+    kind: "wake",
+    instant: alignedWake.toInstant().toString(),
+    zone: targetZone,
+    note: "Auto-generated alignment anchor",
+  };
+  const defaultAnchor = core.defaultShiftAnchor ?? fallbackDefaultAnchor;
   const displayZone =
     core.prefs?.displayZone === "home"
       ? core.params.homeZone
@@ -538,10 +529,6 @@ export function computePlan(core: CorePlan): ComputedView {
   if (perDayShifts.length > 0) {
     perDayShifts[0] = 0;
   }
-
-  const startInstant = startSleep.toInstant();
-  const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
-  const strategy = normalizeShift(core.params, totalDeltaHours);
 
   const projectedEvents = core.events.map((event) => projectEvent(event, displayZone));
   const projectedAnchors = anchors.map((anchor) => projectAnchor(anchor, displayZone));
