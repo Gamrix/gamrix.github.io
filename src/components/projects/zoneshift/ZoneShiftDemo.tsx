@@ -306,7 +306,6 @@ function ZoneShiftDemoComponent() {
   };
 
   const handleAddAnchor = (payload: {
-    kind: "wake" | "sleep";
     zoned: Temporal.ZonedDateTime;
     zone: string;
     note?: string;
@@ -328,7 +327,7 @@ function ZoneShiftDemoComponent() {
             ...prev.anchors,
             {
               id: newAnchorId,
-              kind: payload.kind,
+              kind: "wake",
               zone: payload.zone,
               instant: instantIso,
               ...(payload.note

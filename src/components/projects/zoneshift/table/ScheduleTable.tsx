@@ -131,8 +131,7 @@ export function ScheduleTable({
                               smallestUnit: "minute",
                               fractionalSecondDigits: 0,
                             });
-                          const prefix = anchor.kind === "wake" ? "Wake time" : "Sleep time";
-                          const label = `${prefix} @ ${anchorTime}`;
+                          const label = `Wake time @ ${anchorTime}`;
                           const badgeClass =
                             "inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 

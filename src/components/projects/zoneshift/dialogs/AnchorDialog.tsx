@@ -76,8 +76,8 @@ export function AnchorDialog({
     return null;
   }
 
-  const anchorTitle = anchor.kind === "wake" ? "Wake Time" : "Sleep Time";
-  const anchorLabel = anchor.kind === "wake" ? "wake time" : "sleep time";
+  const anchorTitle = "Wake Time";
+  const anchorLabel = "wake time";
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();

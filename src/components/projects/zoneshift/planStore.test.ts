@@ -23,7 +23,7 @@ describe("planStore", () => {
       minute: 0,
     });
 
-    planActions.addAnchorAt({ kind: "wake", zoned, zone: targetZone });
+    planActions.addAnchorAt({ zoned, zone: targetZone });
 
     const after = planStore.getState().plan.anchors;
     expect(after.length).toBe(beforeCount + 1);

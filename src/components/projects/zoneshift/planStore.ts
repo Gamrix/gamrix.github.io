@@ -252,7 +252,6 @@ export const planActions = {
         }) satisfies PlanStoreState
     ),
   addAnchorAt: (payload: {
-    kind: AnchorPoint["kind"];
     zoned: Temporal.ZonedDateTime;
     zone: string;
     note?: string;
@@ -270,7 +269,7 @@ export const planActions = {
             ...prev.plan.anchors,
             {
               id: anchorId,
-              kind: payload.kind,
+              kind: "wake",
               zone: payload.zone,
               note: payload.note,
               instant: payload.zoned

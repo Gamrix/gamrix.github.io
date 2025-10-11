@@ -22,7 +22,6 @@ type CalendarListViewProps = {
     zone: string;
   }) => void;
   onAddAnchor?: (payload: {
-    kind: "wake" | "sleep";
     zoned: Temporal.ZonedDateTime;
     zone: string;
     note?: string;
@@ -39,7 +38,6 @@ type CalendarEvent = {
 
 type CalendarAnchor = {
   id: string;
-  kind: "wake" | "sleep";
   note?: string;
   zoned: Temporal.ZonedDateTime;
   editable: boolean;
@@ -96,7 +94,6 @@ export function CalendarListView({
         const bucket = mapping.get(key) ?? [];
         bucket.push({
           id: anchor.id,
-          kind: anchor.kind,
           note: anchor.note,
           zoned,
           editable: editableAnchorIds.has(anchor.id),
@@ -254,7 +251,6 @@ export function CalendarListView({
         second: time.second,
       });
       onAddAnchor({
-        kind: "wake",
         zoned,
         zone: displayZoneId,
         note: wakeDraft.note.trim().length > 0 ? wakeDraft.note : undefined,
@@ -332,7 +328,7 @@ export function CalendarListView({
                     disabled={!anchor.editable}
                   >
                     <span className="font-medium text-foreground">
-                      {anchor.kind === "wake" ? "Wake time" : "Sleep time"} @
+                      Wake time @
                       {anchor.zoned
                         .toPlainTime()
                         .toString({

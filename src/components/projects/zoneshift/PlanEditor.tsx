@@ -129,7 +129,6 @@ export function PlanEditor() {
 
   const handleAddAnchor = useCallback(
     (payload: {
-      kind: "wake" | "sleep";
       zoned: Temporal.ZonedDateTime;
       zone: string;
       note?: string;
@@ -138,7 +137,11 @@ export function PlanEditor() {
       const existingIds = new Set(
         planStore.getState().plan.anchors.map((anchor) => anchor.id)
       );
-      planActions.addAnchorAt(payload);
+      planActions.addAnchorAt({
+        zoned: payload.zoned,
+        zone: payload.zone,
+        note: payload.note,
+      });
       if (payload.autoSelect === false) {
         return;
       }

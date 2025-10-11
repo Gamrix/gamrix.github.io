@@ -9,7 +9,7 @@ const ZoneIdSchema = z.string().min(1, "Zone id required");
 
 export const AnchorPointSchema = z.object({
   id: z.string().min(1),
-  kind: z.union([z.literal("wake"), z.literal("sleep")]),
+  kind: z.literal("wake"),
   instant: z.string().datetime(),
   zone: ZoneIdSchema,
   note: z.string().optional(),
@@ -167,22 +167,13 @@ const normalizeShift = (
 
 const resolveAnchorWake = (
   anchor: AnchorPoint,
-  targetZone: ZoneId,
-  sleepDurationMinutes: number
-): Temporal.ZonedDateTime | null => {
-  try {
-    const base = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
-      anchor.zone
-    );
-    const inTarget = base.withTimeZone(targetZone);
-    if (anchor.kind === "wake") {
-      return inTarget;
-    }
-    return inTarget.add({ minutes: sleepDurationMinutes });
-  } catch (error) {
-    console.error("Failed to resolve anchor", anchor, error);
-    return null;
-  }
+  targetZone: ZoneId
+): Temporal.ZonedDateTime => {
+  const base = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
+    anchor.zone
+  );
+  const inTarget = base.withTimeZone(targetZone);
+  return inTarget;
 };
 
 const enumerateDates = (start: Temporal.PlainDate, end: Temporal.PlainDate) => {
@@ -379,16 +370,14 @@ export function computeBrightWindow(
   return clampedEnd;
 }
 
-const projectEvent = (
+function projectEvent (
   event: EventItem,
   zone: ZoneId
-):
-  | (EventItem & {
+): EventItem & {
       startZoned: Temporal.ZonedDateTime;
       endZoned?: Temporal.ZonedDateTime;
-    })
-  | null => {
-  try {
+    }
+   {
     const startInstant = Temporal.Instant.from(event.start);
     const startZoned = startInstant
       .toZonedDateTimeISO(zone)
@@ -406,10 +395,6 @@ const projectEvent = (
       startZoned,
       ...(endZoned ? { endZoned } : {}),
     };
-  } catch (error) {
-    console.error("Failed to project event", event.id, error);
-    return null;
-  }
 };
 
 const projectAnchor = (anchor: AnchorPoint, zone: ZoneId) => {
@@ -485,10 +470,7 @@ export function computePlan(core: CorePlan): ComputedView {
 
   const resolvedAnchors: AnchorResolved[] = anchors
     .map((anchor) => {
-      const wake = resolveAnchorWake(anchor, targetZone, sleepDurationMinutes);
-      if (!wake) {
-        return null;
-      }
+      const wake = resolveAnchorWake(anchor, targetZone);
       return { anchor, wake } satisfies AnchorResolved;
     })
     .filter((value): value is AnchorResolved => value !== null);
@@ -496,11 +478,7 @@ export function computePlan(core: CorePlan): ComputedView {
   const anchorMap = new Map<string, DayAnchorInfo[]>();
   for (const item of resolvedAnchors) {
     const wakeInstantKey = item.wake.toInstant().toString();
-    const rawAnchorMoment =
-      item.anchor.kind === "wake"
-        ? item.wake
-        : item.wake.subtract(sleepDuration);
-    const anchorInstant = rawAnchorMoment.toInstant();
+    const anchorInstant = item.wake.toInstant();
     const isSystemAnchor =
       item.anchor.id === "default-shift-anchor" ||
       item.anchor.id.startsWith("__");
@@ -590,15 +568,7 @@ export function computePlan(core: CorePlan): ComputedView {
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
 
-  const projectedEvents = core.events
-    .map((event) => projectEvent(event, displayZone))
-    .filter(
-      (event): event is EventItem & {
-        startZoned: Temporal.ZonedDateTime;
-        endZoned?: Temporal.ZonedDateTime;
-      } =>
-        event !== null
-    );
+  const projectedEvents = core.events.map((event) => projectEvent(event, displayZone));
 
   const projectedAnchors = anchors.map((anchor) =>
     projectAnchor(anchor, displayZone)

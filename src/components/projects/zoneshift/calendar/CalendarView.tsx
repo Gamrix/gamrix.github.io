@@ -33,7 +33,6 @@ type CalendarAnchorChangeHandler = (
 ) => void;
 
 type CalendarAddAnchorHandler = (payload: {
-  kind: "wake" | "sleep";
   zoned: Temporal.ZonedDateTime;
   zone: string;
 }) => void;

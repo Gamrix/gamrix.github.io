@@ -47,7 +47,6 @@ type MiniCalendarViewProps = {
     zone: string;
   }) => void;
   onAddAnchor?: (payload: {
-    kind: "wake" | "sleep";
     zoned: Temporal.ZonedDateTime;
     zone: string;
     note?: string;
@@ -385,7 +384,6 @@ export function MiniCalendarView({
           second: time.second,
         });
         onAddAnchor({
-          kind: "wake",
           zoned,
           zone: displayZoneId,
           note: wakeDraft.note.trim().length > 0 ? wakeDraft.note : undefined,

@@ -37,7 +37,6 @@ type TimelineProps = {
     payload: { instant: Temporal.ZonedDateTime; zone: string }
   ) => void;
   onAddAnchor: (payload: {
-    kind: "wake" | "sleep";
     zoned: Temporal.ZonedDateTime;
     zone: string;
   }) => void;
@@ -51,7 +50,6 @@ type TimelineProps = {
 
 type TimelineAnchor = {
   id: string;
-  kind: "wake" | "sleep";
   note?: string;
   zone: string;
   zoned: Temporal.ZonedDateTime;
@@ -248,7 +246,6 @@ export function Timeline({
           }
           return {
             id: anchor.id,
-            kind: original.kind,
             note: original.note,
             zone: original.zone,
             zoned,
@@ -485,27 +482,24 @@ export function Timeline({
     []
   );
 
-  const handleAddAnchor = useCallback(
-    (kind: "wake" | "sleep") => {
-      if (!contextMenu.visible) {
-        return;
-      }
-      const date = Temporal.PlainDate.from(contextMenu.isoDate);
-      const hour = Math.floor(contextMenu.minuteOffset / 60);
-      const minute = Math.round(contextMenu.minuteOffset % 60);
-      const zoned = Temporal.ZonedDateTime.from({
-        timeZone: displayZoneId,
-        year: date.year,
-        month: date.month,
-        day: date.day,
-        hour,
-        minute,
-      });
-      onAddAnchor({ kind, zoned, zone: displayZoneId });
-      closeContextMenu();
-    },
-    [closeContextMenu, contextMenu, displayZoneId, onAddAnchor]
-  );
+  const handleAddAnchor = useCallback(() => {
+    if (!contextMenu.visible) {
+      return;
+    }
+    const date = Temporal.PlainDate.from(contextMenu.isoDate);
+    const hour = Math.floor(contextMenu.minuteOffset / 60);
+    const minute = Math.round(contextMenu.minuteOffset % 60);
+    const zoned = Temporal.ZonedDateTime.from({
+      timeZone: displayZoneId,
+      year: date.year,
+      month: date.month,
+      day: date.day,
+      hour,
+      minute,
+    });
+    onAddAnchor({ zoned, zone: displayZoneId });
+    closeContextMenu();
+  }, [closeContextMenu, contextMenu, displayZoneId, onAddAnchor]);
 
   const openEventComposer = useCallback(() => {
     if (!contextMenu.visible) {
@@ -896,8 +890,6 @@ export function Timeline({
                     const minutes = clampMinutes(
                       minutesSinceStartOfDay(anchor.zoned)
                     );
-                    const anchorKindLabel =
-                      anchor.kind === "wake" ? "Wake time" : "Sleep time";
                     return (
                       <button
                         key={anchor.id}
@@ -911,7 +903,7 @@ export function Timeline({
                         onPointerCancel={handlePointerUp}
                         className="absolute left-2 right-2 flex cursor-grab items-center gap-2 rounded-md bg-foreground/10 px-2 py-1 text-left text-[10px] text-foreground transition-colors hover:bg-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                         style={{ top: `${minutes * PIXELS_PER_MINUTE - 10}px` }}
-                        aria-label={`${anchorKindLabel} at ${anchor.zoned
+                        aria-label={`Wake time at ${anchor.zoned
                           .toPlainTime()
                           .toString({
                             smallestUnit: "minute",
@@ -920,7 +912,7 @@ export function Timeline({
                       >
                         <span className="h-2 w-2 rounded-full bg-primary" />
                         <span>
-                          {anchorKindLabel} @{" "}
+                          Wake time @{" "}
                           {anchor.zoned
                             .toPlainTime()
                             .toString({
@@ -959,16 +951,9 @@ export function Timeline({
           <button
             type="button"
             className="mt-1 block w-full rounded px-2 py-1 text-left hover:bg-muted"
-            onClick={() => handleAddAnchor("wake")}
+            onClick={handleAddAnchor}
           >
             Add wake anchor
-          </button>
-          <button
-            type="button"
-            className="mt-1 block w-full rounded px-2 py-1 text-left hover:bg-muted"
-            onClick={() => handleAddAnchor("sleep")}
-          >
-            Add sleep anchor
           </button>
           <button
             type="button"
