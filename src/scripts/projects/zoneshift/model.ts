@@ -369,15 +369,14 @@ const projectEvent = (
   startZoned: Temporal.ZonedDateTime;
   endZoned?: Temporal.ZonedDateTime;
 } => {
-  const startZoned = toRoundedZonedDateTime(event.start, event.zone, zone);
   const endZoned = event.end
     ? toRoundedZonedDateTime(event.end, event.zone, zone)
     : undefined;
 
   return {
     ...event,
-    startZoned,
-    ...(endZoned ? { endZoned } : {}),
+    startZoned: toRoundedZonedDateTime(event.start, event.zone, zone);
+    endZoned
   };
 };
 
