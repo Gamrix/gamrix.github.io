@@ -88,13 +88,6 @@ function ZoneShiftDemoComponent() {
     displayZone === "home"
       ? planState.params.homeZone
       : planState.params.targetZone;
-  const zoneLabels = useMemo(
-    () => ({
-      home: planState.params.homeZone,
-      target: planState.params.targetZone,
-    }),
-    [planState.params.homeZone, planState.params.targetZone],
-  );
 
   const activeAnchor = useMemo(
     () =>
@@ -341,19 +334,26 @@ function ZoneShiftDemoComponent() {
                 <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   Display zone
                 </span>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(zoneLabels) as Array<"home" | "target">).map((option) => (
-                    <Button
-                      key={option}
-                      type="button"
-                      variant={option === displayZone ? "default" : "outline"}
-                      className="text-xs"
-                      onClick={() => handleDisplayZoneChange(option)}
-                      aria-pressed={option === displayZone}
-                    >
-                      {zoneLabels[option]}
-                    </Button>
-                  ))}
+                <div className="flex gap-2">
+                  {(["home", "target"] as const).map((option) => {
+                    const zoneId =
+                      option === "home"
+                        ? planState.params.homeZone
+                        : planState.params.targetZone;
+                    return (
+                      <Button
+                        key={option}
+                        type="button"
+                        variant={option === displayZone ? "default" : "outline"}
+                        className="text-xs"
+                        onClick={() => handleDisplayZoneChange(option)}
+                        aria-pressed={option === displayZone}
+                        aria-label={zoneId}
+                        >
+                          {zoneId}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -412,6 +412,7 @@ function ZoneShiftDemoComponent() {
           computed={computed}
           displayZoneId={displayZoneId}
           onEditEvent={() => undefined}
+          onEventChange={handleEventChange}
         />
       ) : (
         <ScheduleTable

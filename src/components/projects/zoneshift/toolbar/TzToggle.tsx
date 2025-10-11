@@ -23,9 +23,13 @@ export function TzToggle({
           size="sm"
           onClick={() => onChange("target")}
           aria-pressed={displayZone === "target"}
+          aria-label={targetZone}
         >
           Target
-          <span className="ml-2 text-[10px] text-muted-foreground">
+          <span
+            className="ml-2 text-[10px] text-muted-foreground"
+            aria-hidden="true"
+          >
             {targetZone}
           </span>
         </Button>
@@ -35,9 +39,13 @@ export function TzToggle({
           size="sm"
           onClick={() => onChange("home")}
           aria-pressed={displayZone === "home"}
+          aria-label={homeZone}
         >
           Home
-          <span className="ml-2 text-[10px] text-muted-foreground">
+          <span
+            className="ml-2 text-[10px] text-muted-foreground"
+            aria-hidden="true"
+          >
             {homeZone}
           </span>
         </Button>

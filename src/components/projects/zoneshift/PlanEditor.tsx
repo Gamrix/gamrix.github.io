@@ -189,6 +189,9 @@ export function PlanEditor() {
               computed={computed}
               displayZoneId={displayZoneId}
               onEditEvent={planActions.setActiveEvent}
+              onEventChange={(eventId, payload) =>
+                planActions.moveEvent(eventId, payload, timeStepMinutes)
+              }
             />
           ) : (
             <ScheduleTable

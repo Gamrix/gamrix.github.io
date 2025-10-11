@@ -1,4 +1,12 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { PointerEvent as ReactPointerEvent, MouseEvent } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +22,14 @@ type MiniCalendarViewProps = {
   displayZoneId: string;
   onEditEvent?: (eventId: string) => void;
   onOpenPlanSettings?: () => void;
+  onEventChange?: (
+    eventId: string,
+    payload: {
+      start: Temporal.ZonedDateTime;
+      end?: Temporal.ZonedDateTime;
+      zone: string;
+    }
+  ) => void;
 };
 
 type SegmentType = "sleep" | "bright" | "other";
@@ -30,6 +46,7 @@ type MiniEvent = {
   start: Temporal.ZonedDateTime;
   end?: Temporal.ZonedDateTime;
   summary: string;
+  zone: string;
 };
 
 type MiniAnchor = {
@@ -45,6 +62,7 @@ const TOTAL_HEIGHT = `calc(${TIMELINE_HEIGHT} + ${HEADER_HEIGHT})`;
 const MIN_DAYS_PER_PAGE = 7;
 const DAY_COLUMN_WIDTH_PX = 50;
 const DAY_GAP_PX = 16;
+const MIDNIGHT = Temporal.PlainTime.from("00:00");
 
 const getMinutesFromZdt = (value: Temporal.ZonedDateTime) => {
   return minutesSinceStartOfDay(value);
@@ -115,11 +133,55 @@ const formatEventTime = (value: Temporal.ZonedDateTime) =>
     .toPlainTime()
     .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
+type ColumnRect = {
+  key: string;
+  rect: DOMRect;
+};
+
+type DragState = {
+  pointerId: number;
+  eventId: string;
+  zone: string;
+  originalStart: Temporal.ZonedDateTime;
+  originalEnd?: Temporal.ZonedDateTime;
+  duration?: Temporal.Duration | null;
+  pointerOffsetX: number;
+  pointerOffsetY: number;
+  startClientX: number;
+  startClientY: number;
+  hasMoved: boolean;
+  columnRects: ColumnRect[];
+  lastApplied: string | null;
+};
+
+const setPointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
+  const target = event.currentTarget as Element & {
+    setPointerCapture?: (pointerId: number) => void;
+  };
+  if (typeof target.setPointerCapture === "function") {
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {}
+  }
+};
+
+const releasePointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
+  const target = event.currentTarget as Element & {
+    releasePointerCapture?: (pointerId: number) => void;
+  };
+  if (typeof target.releasePointerCapture === "function") {
+    try {
+      target.releasePointerCapture(event.pointerId);
+    } catch {}
+  }
+};
+
 export function MiniCalendarView({
   computed,
   displayZoneId,
   onEditEvent,
   onOpenPlanSettings,
+  onEventChange,
 }: MiniCalendarViewProps) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -128,10 +190,24 @@ export function MiniCalendarView({
     null
   );
   const [containerWidth, setContainerWidth] = useState(0);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const suppressClickRef = useRef(false);
 
   const setScrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     setScrollContainer(node);
   }, []);
+
+  const registerDayColumn = useCallback(
+    (key: string) => (node: HTMLDivElement | null) => {
+      if (node) {
+        dayColumnRefs.current[key] = node;
+      } else {
+        delete dayColumnRefs.current[key];
+      }
+    },
+    []
+  );
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, MiniEvent[]>();
@@ -146,7 +222,14 @@ export function MiniCalendarView({
           ? formatRangeLabel(start, end, { separator: " → " })
           : formatEventTime(start);
         const bucket = mapping.get(key) ?? [];
-        bucket.push({ id: event.id, title: event.title, start, end, summary });
+        bucket.push({
+          id: event.id,
+          title: event.title,
+          start,
+          end,
+          summary,
+          zone: event.zone,
+        });
         mapping.set(key, bucket);
       } catch (error) {
         console.error("Failed to map event for mini calendar", event.id, error);
@@ -211,6 +294,165 @@ export function MiniCalendarView({
     }
     return markers;
   }, []);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>, item: MiniEvent) => {
+      suppressClickRef.current = true;
+      if (!onEventChange) {
+        return;
+      }
+      const rect = event.currentTarget.getBoundingClientRect();
+      const pointerOffsetX =
+        event.clientX - (rect.left + rect.width / 2);
+      const pointerOffsetY =
+        event.clientY - (rect.top + rect.height / 2);
+      const columnRects = Object.entries(dayColumnRefs.current)
+        .map(([key, node]) => {
+          if (!node) {
+            return null;
+          }
+          return { key, rect: node.getBoundingClientRect() };
+        })
+        .filter((value): value is ColumnRect => value !== null);
+      setPointerCaptureSafe(event);
+      setDragState({
+        pointerId: event.pointerId,
+        eventId: item.id,
+        zone: item.zone,
+        originalStart: item.start,
+        originalEnd: item.end,
+        duration: item.end ? item.end.since(item.start) : null,
+        pointerOffsetX,
+        pointerOffsetY,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        hasMoved: false,
+        columnRects,
+        lastApplied: null,
+      });
+    },
+    [onEventChange]
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      const moved =
+        Math.abs(event.clientX - dragState.startClientX) > 2 ||
+        Math.abs(event.clientY - dragState.startClientY) > 2;
+      if (moved && !dragState.hasMoved) {
+        setDragState((prev) =>
+          prev && prev.pointerId === event.pointerId
+            ? { ...prev, hasMoved: true }
+            : prev
+        );
+      }
+      if (!onEventChange || dragState.columnRects.length === 0) {
+        return;
+      }
+      const targetCenterX = event.clientX - dragState.pointerOffsetX;
+      const targetCenterY = event.clientY - dragState.pointerOffsetY;
+      let closest: ColumnRect | null = null;
+      let minDistance = Number.POSITIVE_INFINITY;
+      for (const column of dragState.columnRects) {
+        const center = column.rect.left + column.rect.width / 2;
+        const distance = Math.abs(targetCenterX - center);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closest = column;
+        }
+      }
+      if (!closest) {
+        return;
+      }
+      const rect = closest.rect;
+      const clampedY = Math.min(
+        Math.max(targetCenterY, rect.top),
+        rect.bottom
+      );
+      const ratio =
+        rect.height === 0 ? 0 : (clampedY - rect.top) / rect.height;
+      const minutesRaw = ratio * MINUTES_IN_DAY;
+      const minutes = Math.max(
+        0,
+        Math.min(Math.round(minutesRaw), MINUTES_IN_DAY)
+      );
+      const signature = `${closest.key}-${minutes}`;
+      if (dragState.lastApplied === signature) {
+        return;
+      }
+      let date: Temporal.PlainDate;
+      try {
+        date = Temporal.PlainDate.from(closest.key);
+      } catch {
+        return;
+      }
+      const base = date.toZonedDateTime({
+        plainTime: MIDNIGHT,
+        timeZone: displayZoneId,
+      });
+      const nextStartDisplay = base.add({ minutes });
+      const startInZone = nextStartDisplay.withTimeZone(dragState.zone);
+      const nextEndDisplay = dragState.duration
+        ? nextStartDisplay.add(dragState.duration)
+        : undefined;
+      const endInZone = nextEndDisplay
+        ? nextEndDisplay.withTimeZone(dragState.zone)
+        : undefined;
+      onEventChange(dragState.eventId, {
+        start: startInZone,
+        end: endInZone,
+        zone: dragState.zone,
+      });
+      setDragState((prev) =>
+        prev && prev.pointerId === event.pointerId
+          ? { ...prev, hasMoved: true, lastApplied: signature }
+          : prev
+      );
+    },
+    [dragState, displayZoneId, onEventChange]
+  );
+
+  const handlePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>, eventId: string) => {
+      if (dragState && event.pointerId === dragState.pointerId) {
+        releasePointerCaptureSafe(event);
+        const moved = dragState.hasMoved;
+        setDragState(null);
+        if (!moved) {
+          setExpandedEventId((prev) => (prev === eventId ? null : eventId));
+        }
+        return;
+      }
+      setExpandedEventId((prev) => (prev === eventId ? null : eventId));
+    },
+    [dragState]
+  );
+
+  const handlePointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) {
+        return;
+      }
+      releasePointerCaptureSafe(event);
+      setDragState(null);
+    },
+    [dragState]
+  );
+
+  const handleButtonClick = useCallback(
+    (_event: MouseEvent<HTMLButtonElement>, eventId: string) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
+      setExpandedEventId((prev) => (prev === eventId ? null : eventId));
+    },
+    []
+  );
 
   useEffect(() => {
     const totalDays = timelineByDay.length;
@@ -422,6 +664,7 @@ export function MiniCalendarView({
                         <div
                           key={day.wakeInstant.toString()}
                           className="relative h-full flex-shrink-0"
+                          ref={registerDayColumn(day.dateTargetZone)}
                           style={{
                             width: `${dayColumnWidth}px`,
                             minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
@@ -462,51 +705,61 @@ export function MiniCalendarView({
                                 </div>
                               ))}
 
-                              {events.map((event) => {
+                              {events.map((item) => {
                                 const minuteOffset = getMinutesFromZdt(
-                                  event.start
+                                  item.start
                                 );
                                 const topPercent =
                                   (minuteOffset / MINUTES_IN_DAY) * 100;
-                                const isActive = expandedEventId === event.id;
-                                const toggleLabelId = `${event.id}-toggle-label`;
+                                const isActive = expandedEventId === item.id;
+                                const isDragging =
+                                  dragState?.eventId === item.id;
 
                                 return (
-                                  <Fragment key={event.id}>
+                                  <Fragment key={item.id}>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        setExpandedEventId((prev) =>
-                                          prev === event.id ? null : event.id
+                                      onPointerDown={(pointerEvent) =>
+                                        handlePointerDown(pointerEvent, item)
+                                      }
+                                      onPointerMove={handlePointerMove}
+                                      onPointerUp={(pointerEvent) =>
+                                        handlePointerUp(
+                                          pointerEvent,
+                                          item.id
                                         )
                                       }
-                                      className={`absolute left-1/2 z-20 h-4 w-4 -translate-x-1/2 rounded-full border border-card shadow-sm ${
+                                      onPointerCancel={handlePointerCancel}
+                                      onClick={(clickEvent) =>
+                                        handleButtonClick(clickEvent, item.id)
+                                      }
+                                      className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${
                                         isActive
                                           ? "bg-primary"
                                           : "bg-foreground"
+                                      } ${
+                                        isDragging
+                                          ? "cursor-grabbing"
+                                          : "cursor-grab"
                                       } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
                                       style={{
-                                        top: `calc(${topPercent}% - 8px)`,
+                                        top: `calc(${topPercent}% - 12px)`,
                                       }}
-                                      aria-label={event.title}
-                                      aria-describedby={toggleLabelId}
+                                      aria-label={item.title}
                                     >
-                                      <span id={toggleLabelId} className="sr-only">
-                                        Toggle event details
-                                      </span>
                                     </button>
                                     {isActive ? (
                                       <div
                                         className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
                                         style={{
-                                          top: `calc(${topPercent}% - 12px)`,
+                                          top: `calc(${topPercent}% - 16px)`,
                                         }}
                                       >
                                         <div className="font-semibold text-foreground">
-                                          {event.title}
+                                          {item.title}
                                         </div>
                                         <p className="text-muted-foreground">
-                                          {event.summary}
+                                          {item.summary}
                                         </p>
                                         {onEditEvent ? (
                                           <Button
@@ -515,7 +768,7 @@ export function MiniCalendarView({
                                             variant="outline"
                                             className="mt-2"
                                             onClick={() =>
-                                              onEditEvent(event.id)
+                                              onEditEvent(item.id)
                                             }
                                           >
                                             Edit event
