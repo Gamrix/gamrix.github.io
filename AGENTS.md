@@ -32,6 +32,7 @@
 - Prefer visible failures to papered-over ones; don’t silence linter/type errors with temporary workarounds (e.g., any`/unknown`).
 - Surface issues at compile time when possible; use types to make potential errors explicit.
 - Add error handling only for clear, likely failure modes.
+- There should never be error handling to catch logic bugs.
 
 ## Language Rules
 
