@@ -518,6 +518,7 @@ export function Timeline({
             const dayKey = day.wakeDisplayDate.toString();
             const events = eventsByDay.get(dayKey) ?? [];
             const anchors = anchorsByDay.get(dayKey) ?? [];
+            const isoDate = dayKey;
             const dateObj = day.wakeDisplayDate;
             const weekday = dateObj.toLocaleString("en-US", {
               weekday: "short",
