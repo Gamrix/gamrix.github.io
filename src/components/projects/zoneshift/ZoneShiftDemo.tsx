@@ -18,11 +18,6 @@ import {
 
 type DemoViewMode = "calendar" | "timeline" | "mini" | "table";
 
-const VIEW_LABEL: Record<"home" | "target", string> = {
-  home: "Home Zone",
-  target: "Target Zone",
-};
-
 const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
   calendar: "List View",
   timeline: "Calendar View",
@@ -93,6 +88,13 @@ function ZoneShiftDemoComponent() {
     displayZone === "home"
       ? planState.params.homeZone
       : planState.params.targetZone;
+  const zoneLabels = useMemo(
+    () => ({
+      home: planState.params.homeZone,
+      target: planState.params.targetZone,
+    }),
+    [planState.params.homeZone, planState.params.targetZone],
+  );
 
   const activeAnchor = useMemo(
     () =>
@@ -340,30 +342,20 @@ function ZoneShiftDemoComponent() {
                   Display zone
                 </span>
                 <div className="flex gap-2">
-                  {(["home", "target"] as const).map((option) => {
-                    const zoneId =
-                      option === "home"
-                        ? planState.params.homeZone
-                        : planState.params.targetZone;
-                    return (
-                      <Button
-                        key={option}
-                        type="button"
-                        variant={option === displayZone ? "default" : "outline"}
-                        className="text-xs"
-                        onClick={() => handleDisplayZoneChange(option)}
-                        aria-pressed={option === displayZone}
-                      >
-                        {VIEW_LABEL[option]}
-                        <span className="ml-2 text-[10px] text-muted-foreground">
-                          {zoneId}
-                        </span>
-                      </Button>
-                    );
-                  })}
+                  {(Object.keys(zoneLabels) as Array<"home" | "target">).map((option) => (
+                    <Button
+                      key={option}
+                      type="button"
+                      variant={option === displayZone ? "default" : "outline"}
+                      className="text-xs"
+                      onClick={() => handleDisplayZoneChange(option)}
+                      aria-pressed={option === displayZone}
+                    >
+                      {zoneLabels[option]}
+                    </Button>
+                  ))}
                 </div>
               </div>
-              <span className="text-xs text-muted-foreground">{displayZoneId}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">

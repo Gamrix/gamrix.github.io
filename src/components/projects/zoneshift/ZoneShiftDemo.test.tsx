@@ -2,19 +2,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import ZoneShiftDemo from "./ZoneShiftDemo";
+import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
 describe("ZoneShiftDemo", () => {
   it("toggles viewing zone between target and home", async () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    const targetZoneLabels = await screen.findAllByText("Asia/Taipei");
+    const targetZoneLabels = await screen.findAllByText(sampleCorePlan.params.targetZone);
     expect(targetZoneLabels.length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
-    await user.click(screen.getByRole("button", { name: "Home Zone" }));
+    await user.click(screen.getByRole("button", { name: sampleCorePlan.params.homeZone }));
 
-    const homeZoneLabels = await screen.findAllByText("America/Los_Angeles");
+    const homeZoneLabels = await screen.findAllByText(sampleCorePlan.params.homeZone);
     expect(homeZoneLabels.length).toBeGreaterThan(0);
   });
 

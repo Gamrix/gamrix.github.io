@@ -508,11 +508,11 @@ export function MiniCalendarView({
                                       style={{
                                         top: `calc(${topPercent}% - 8px)`,
                                       }}
-                                      aria-label="Toggle event details"
+                                      aria-label={event.title}
                                       aria-describedby={toggleLabelId}
                                     >
                                       <span id={toggleLabelId} className="sr-only">
-                                        {event.title}
+                                        Toggle event details
                                       </span>
                                     </button>
                                     {isActive ? (
