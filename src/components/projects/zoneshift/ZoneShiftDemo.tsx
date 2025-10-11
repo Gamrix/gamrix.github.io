@@ -341,7 +341,7 @@ function ZoneShiftDemoComponent() {
                 <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   Display zone
                 </span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(Object.keys(zoneLabels) as Array<"home" | "target">).map((option) => (
                     <Button
                       key={option}
@@ -361,7 +361,7 @@ function ZoneShiftDemoComponent() {
               <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 View
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {(Object.keys(DEMO_VIEW_LABEL) as DemoViewMode[]).map(
                   (mode) => (
                     <Button
