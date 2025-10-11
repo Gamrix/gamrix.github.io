@@ -694,7 +694,7 @@ export function Timeline({
               };
             }
 
-            const visible = visibleRanges[isoDate] ?? {
+            const visible = visibleRanges[dayKey] ?? {
               start: 0,
               end: CALENDAR_MINUTES,
             };
@@ -744,9 +744,9 @@ export function Timeline({
 
             return (
               <div
-                key={isoDate}
+                key={dayKey}
                 className="min-w-[240px] flex-1"
-                data-testid={`timeline-day-${isoDate}`}
+                data-testid={`timeline-day-${dayKey}`}
               >
                 <div className="flex items-center justify-between border-b pb-2 text-sm font-medium text-foreground">
                   <span>{weekday}</span>
@@ -754,24 +754,24 @@ export function Timeline({
                 </div>
                 <div
                   ref={(element) => {
-                    scrollRefs.current[isoDate] = element;
+                    scrollRefs.current[dayKey] = element;
                   }}
                   className="relative border-l border-r border-b bg-card"
-                  data-testid={`timeline-scroll-${isoDate}`}
+                  data-testid={`timeline-scroll-${dayKey}`}
                   role="application"
-                  aria-label={`Timeline interactions for ${isoDate}`}
+                  aria-label={`Timeline interactions for ${dayKey}`}
                   style={{ height: `${CALENDAR_HEIGHT}px` }}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerUp}
                   onScroll={(event) =>
-                    handleScroll(isoDate, event.currentTarget)
+                    handleScroll(dayKey, event.currentTarget)
                   }
-                  onContextMenu={(event) => handleContextMenu(isoDate, event)}
+                  onContextMenu={(event) => handleContextMenu(dayKey, event)}
                 >
                   {visibleTicks.map((minute) => (
                     <div
-                      key={`${isoDate}-${minute}`}
+                      key={`${dayKey}-${minute}`}
                       className="absolute left-0 right-0 border-b border-border/60 text-[10px] text-muted-foreground"
                       style={{ top: `${minute * PIXELS_PER_MINUTE}px` }}
                     >

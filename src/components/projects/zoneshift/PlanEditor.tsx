@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,92 @@ export function PlanEditor() {
   const finalSleepLabel = lastDay
     ? `${lastDay.wakeDisplayDate.toLocaleString("en-US", { weekday: "short" })} @ ${lastDay.sleepStartLocal}`
     : "--";
+
+  const handleAddEvent = useCallback(
+    (payload: {
+      title: string;
+      start: Temporal.ZonedDateTime;
+      end?: Temporal.ZonedDateTime;
+      zone: string;
+    }) => {
+      const step = timeStepMinutes;
+      const startInZone = payload.start.withTimeZone(payload.zone);
+      const startOfDay = Temporal.ZonedDateTime.from({
+        timeZone: startInZone.timeZoneId,
+        year: startInZone.year,
+        month: startInZone.month,
+        day: startInZone.day,
+      });
+      const startMinutesRaw = startInZone
+        .since(startOfDay)
+        .total({ unit: "minutes" });
+      const startSnapped = Math.round(startMinutesRaw / step) * step;
+      const startMinutes = Math.max(0, Math.min(startSnapped, 24 * 60));
+      const snappedStart = startOfDay.add({ minutes: startMinutes });
+
+      let endInstant: string | undefined;
+      if (payload.end) {
+        const endInZone = payload.end.withTimeZone(payload.zone);
+        const endOfDay = Temporal.ZonedDateTime.from({
+          timeZone: endInZone.timeZoneId,
+          year: endInZone.year,
+          month: endInZone.month,
+          day: endInZone.day,
+        });
+        const endMinutesRaw = endInZone
+          .since(endOfDay)
+          .total({ unit: "minutes" });
+        const endSnapped = Math.round(endMinutesRaw / step) * step;
+        const endMinutes = Math.max(0, Math.min(endSnapped, 24 * 60));
+        const minEndMinutes = Math.max(endMinutes, startMinutes + step);
+        const snappedEnd = endOfDay.add({ minutes: minEndMinutes });
+        endInstant = snappedEnd.toInstant().toString();
+      }
+
+      const trimmedTitle = payload.title.trim();
+      const finalTitle = trimmedTitle.length > 0 ? trimmedTitle : "New event";
+      const newEventId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `event-${Date.now()}`;
+
+      planActions.addEvent({
+        id: newEventId,
+        title: finalTitle,
+        start: snappedStart.toInstant().toString(),
+        end:
+          endInstant ??
+          snappedStart.add({ minutes: step }).toInstant().toString(),
+        zone: payload.zone,
+      });
+      planActions.setActiveEvent(newEventId);
+    },
+    [timeStepMinutes]
+  );
+
+  const handleAddAnchor = useCallback(
+    (payload: {
+      kind: "wake" | "sleep";
+      zoned: Temporal.ZonedDateTime;
+      zone: string;
+      note?: string;
+      autoSelect?: boolean;
+    }) => {
+      const existingIds = new Set(
+        planStore.getState().plan.anchors.map((anchor) => anchor.id)
+      );
+      planActions.addAnchorAt(payload);
+      if (payload.autoSelect === false) {
+        return;
+      }
+      const nextAnchors = planStore.getState().plan.anchors;
+      const created = nextAnchors.find((anchor) => !existingIds.has(anchor.id));
+      if (created) {
+        planActions.setActiveAnchor(created.id);
+      }
+    },
+    []
+  );
 
   return (
     <section className="space-y-8">
@@ -156,6 +242,8 @@ export function PlanEditor() {
               displayZoneId={displayZoneId}
               onEditEvent={planActions.setActiveEvent}
               onEditAnchor={planActions.setActiveAnchor}
+              onAddEvent={handleAddEvent}
+              onAddAnchor={handleAddAnchor}
             />
           ) : viewMode === "timeline" ? (
             <CalendarView
@@ -170,34 +258,31 @@ export function PlanEditor() {
               onAnchorChange={(anchorId, payload) =>
                 planActions.moveAnchor(anchorId, payload, timeStepMinutes)
               }
-              onAddAnchor={(payload) => {
-                const existingIds = new Set(
-                  plan.anchors.map((anchor) => anchor.id)
-                );
-                planActions.addAnchorAt(payload);
-                const nextAnchors = planStore.getState().plan.anchors;
-                const created = nextAnchors.find(
-                  (anchor) => !existingIds.has(anchor.id)
-                );
-                if (created) {
-                  planActions.setActiveAnchor(created.id);
-                }
-              }}
+              onAddAnchor={handleAddAnchor}
+              onAddEvent={handleAddEvent}
             />
           ) : viewMode === "mini" ? (
             <MiniCalendarView
               computed={computed}
               displayZoneId={displayZoneId}
               onEditEvent={planActions.setActiveEvent}
+              onEditAnchor={planActions.setActiveAnchor}
               onEventChange={(eventId, payload) =>
                 planActions.moveEvent(eventId, payload, timeStepMinutes)
               }
+              onAnchorChange={(anchorId, payload) =>
+                planActions.moveAnchor(anchorId, payload, timeStepMinutes)
+              }
+              onAddEvent={handleAddEvent}
+              onAddAnchor={handleAddAnchor}
             />
           ) : (
             <ScheduleTable
               computed={computed}
               displayZoneId={displayZoneId}
               onEditAnchor={planActions.setActiveAnchor}
+              onAddEvent={handleAddEvent}
+              onAddAnchor={handleAddAnchor}
             />
           )}
         </div>

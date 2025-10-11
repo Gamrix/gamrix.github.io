@@ -491,7 +491,9 @@ function ZoneShiftDemoComponent() {
           computed={computed}
           displayZoneId={displayZoneId}
           onEditEvent={() => undefined}
+          onEditAnchor={setActiveAnchorId}
           onEventChange={handleEventChange}
+          onAnchorChange={handleAnchorChange}
           onAddEvent={handleAddEvent}
           onAddAnchor={handleAddAnchor}
         />

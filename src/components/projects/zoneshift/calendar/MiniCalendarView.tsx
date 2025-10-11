@@ -18,6 +18,7 @@ import type { ComputedView } from "@/scripts/projects/zoneshift/model";
 import {
   MINUTES_IN_DAY,
   formatRangeLabel,
+  rangeDaySuffix,
   minutesSinceStartOfDay,
 } from "../utils/timeSegments";
 
@@ -25,6 +26,7 @@ type MiniCalendarViewProps = {
   computed: ComputedView;
   displayZoneId: string;
   onEditEvent?: (eventId: string) => void;
+  onEditAnchor?: (anchorId: string) => void;
   onOpenPlanSettings?: () => void;
   onEventChange?: (
     eventId: string,
@@ -33,6 +35,10 @@ type MiniCalendarViewProps = {
       end?: Temporal.ZonedDateTime;
       zone: string;
     }
+  ) => void;
+  onAnchorChange?: (
+    anchorId: string,
+    payload: { instant: Temporal.ZonedDateTime; zone: string }
   ) => void;
   onAddEvent?: (payload: {
     title: string;
@@ -64,12 +70,11 @@ type MiniEvent = {
   end?: Temporal.ZonedDateTime;
   summary: string;
   zone: string;
-};
-
-type MiniAnchor = {
-  id: string;
-  minuteOffset: number;
-  label: string;
+  kind: "event" | "wake";
+  editable: boolean;
+  anchorId?: string;
+  note?: string;
+  displayTime?: string;
 };
 
 const TIMELINE_HEIGHT = "min(26rem, 70vh)";
@@ -158,6 +163,7 @@ type ColumnRect = {
 type DragState = {
   pointerId: number;
   eventId: string;
+  kind: "event" | "wake";
   zone: string;
   originalStart: Temporal.ZonedDateTime;
   originalEnd?: Temporal.ZonedDateTime;
@@ -169,6 +175,7 @@ type DragState = {
   hasMoved: boolean;
   columnRects: ColumnRect[];
   lastApplied: string | null;
+  anchorId?: string;
 };
 
 const setPointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
@@ -197,8 +204,10 @@ export function MiniCalendarView({
   computed,
   displayZoneId,
   onEditEvent,
+  onEditAnchor,
   onOpenPlanSettings,
   onEventChange,
+  onAnchorChange,
   onAddEvent,
   onAddAnchor,
 }: MiniCalendarViewProps) {
@@ -419,6 +428,8 @@ export function MiniCalendarView({
           end,
           summary,
           zone: event.zone,
+          kind: "event",
+          editable: true,
         });
         mapping.set(key, bucket);
       } catch (error) {
@@ -432,6 +443,30 @@ export function MiniCalendarView({
 
     return mapping;
   }, [computed.projectedEvents, displayZoneId]);
+
+  const anchorMetadata = useMemo(() => {
+    const mapping = new Map<
+      string,
+      { zoned: Temporal.ZonedDateTime; zone: string; note?: string }
+    >();
+    computed.projectedAnchors.forEach((anchor) => {
+      try {
+        const zoned = anchor.zonedDateTime.withTimeZone(displayZoneId);
+        mapping.set(anchor.id, {
+          zoned,
+          zone: anchor.zone,
+          note: anchor.note,
+        });
+      } catch (error) {
+        console.error(
+          "Failed to map anchor metadata for mini calendar",
+          anchor.id,
+          error
+        );
+      }
+    });
+    return mapping;
+  }, [computed.projectedAnchors, displayZoneId]);
 
   const timelineByDay = useMemo(() => {
     const toMinutes = (value: Temporal.ZonedDateTime) => {
@@ -456,26 +491,43 @@ export function MiniCalendarView({
         segments = applySegment(segments, brightStart, brightEnd, "bright");
       }
 
-      const wakeAnchors: MiniAnchor[] = day.anchors
-        .filter((anchor) => anchor.kind === "wake")
-        .map((anchor) => {
-          const zdt = anchor.instant.toZonedDateTimeISO(displayZoneId);
-          const minutes = getMinutesFromZdt(zdt);
-          return {
-            id: anchor.id,
-            minuteOffset: minutes,
-            label: zdt
-              .toPlainTime()
-              .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-          } satisfies MiniAnchor;
-        })
-        .filter((item): item is MiniAnchor => item !== null);
-
       const key = day.wakeDisplayDate.toString();
       const events = eventsByDay.get(key) ?? [];
-      return { day, segments, events, wakeAnchors };
+      const wakeEvents: MiniEvent[] = day.anchors
+        .filter((anchor) => anchor.kind === "wake")
+        .map((anchor) => {
+          const metadata = anchorMetadata.get(anchor.id);
+          const zoned =
+            metadata?.zoned ??
+            Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
+              displayZoneId
+            );
+          const timeLabel = zoned
+            .toPlainTime()
+            .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+          const noteSource = metadata?.note ?? anchor.note;
+          const trimmedNote = noteSource?.trim() ?? "";
+          const title = trimmedNote.length > 0 ? trimmedNote : "Wake time";
+          const summary =
+            trimmedNote.length > 0 ? `${timeLabel} · ${trimmedNote}` : timeLabel;
+          return {
+            id: `wake-${anchor.id}`,
+            title,
+            start: zoned,
+            summary,
+            zone: metadata?.zone ?? zoned.timeZoneId,
+            kind: "wake",
+            anchorId: anchor.id,
+            editable: anchor.editable,
+            note: trimmedNote.length > 0 ? trimmedNote : undefined,
+            displayTime: timeLabel,
+          } satisfies MiniEvent;
+        });
+      const combined = [...events, ...wakeEvents];
+      combined.sort((a, b) => Temporal.ZonedDateTime.compare(a.start, b.start));
+      return { day, segments, events: combined };
     });
-  }, [computed.days, eventsByDay, displayZoneId]);
+  }, [anchorMetadata, computed.days, displayZoneId, eventsByDay]);
 
   const hourMarkers = useMemo(() => {
     const markers: number[] = [];
@@ -487,8 +539,13 @@ export function MiniCalendarView({
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>, item: MiniEvent) => {
+      const isWake = item.kind === "wake";
+      const canDrag = isWake
+        ? Boolean(onAnchorChange && item.editable && item.anchorId)
+        : Boolean(onEventChange);
       suppressClickRef.current = true;
-      if (!onEventChange) {
+      if (!canDrag) {
+        suppressClickRef.current = false;
         return;
       }
       const rect = event.currentTarget.getBoundingClientRect();
@@ -508,10 +565,14 @@ export function MiniCalendarView({
       setDragState({
         pointerId: event.pointerId,
         eventId: item.id,
+        kind: item.kind,
         zone: item.zone,
         originalStart: item.start,
-        originalEnd: item.end,
-        duration: item.end ? item.end.since(item.start) : null,
+        originalEnd: item.kind === "event" ? item.end : undefined,
+        duration:
+          item.kind === "event" && item.end
+            ? item.end.since(item.start)
+            : null,
         pointerOffsetX,
         pointerOffsetY,
         startClientX: event.clientX,
@@ -519,9 +580,10 @@ export function MiniCalendarView({
         hasMoved: false,
         columnRects,
         lastApplied: null,
+        anchorId: item.anchorId,
       });
     },
-    [onEventChange]
+    [onAnchorChange, onEventChange]
   );
 
   const handlePointerMove = useCallback(
@@ -540,7 +602,14 @@ export function MiniCalendarView({
             : prev
         );
       }
-      if (!onEventChange || dragState.columnRects.length === 0) {
+      if (dragState.columnRects.length === 0) {
+        return;
+      }
+      const canApply =
+        dragState.kind === "wake"
+          ? Boolean(onAnchorChange && dragState.anchorId)
+          : Boolean(onEventChange);
+      if (!canApply) {
         return;
       }
       const targetCenterX = event.clientX - dragState.pointerOffsetX;
@@ -586,24 +655,34 @@ export function MiniCalendarView({
       });
       const nextStartDisplay = base.add({ minutes });
       const startInZone = nextStartDisplay.withTimeZone(dragState.zone);
-      const nextEndDisplay = dragState.duration
-        ? nextStartDisplay.add(dragState.duration)
-        : undefined;
-      const endInZone = nextEndDisplay
-        ? nextEndDisplay.withTimeZone(dragState.zone)
-        : undefined;
-      onEventChange(dragState.eventId, {
-        start: startInZone,
-        end: endInZone,
-        zone: dragState.zone,
-      });
+      if (dragState.kind === "wake") {
+        if (dragState.anchorId && onAnchorChange) {
+          const instantInZone = nextStartDisplay.withTimeZone(dragState.zone);
+          onAnchorChange(dragState.anchorId, {
+            instant: instantInZone,
+            zone: dragState.zone,
+          });
+        }
+      } else if (onEventChange) {
+        const nextEndDisplay = dragState.duration
+          ? nextStartDisplay.add(dragState.duration)
+          : undefined;
+        const endInZone = nextEndDisplay
+          ? nextEndDisplay.withTimeZone(dragState.zone)
+          : undefined;
+        onEventChange(dragState.eventId, {
+          start: startInZone,
+          end: endInZone,
+          zone: dragState.zone,
+        });
+      }
       setDragState((prev) =>
         prev && prev.pointerId === event.pointerId
           ? { ...prev, hasMoved: true, lastApplied: signature }
           : prev
       );
     },
-    [dragState, displayZoneId, onEventChange]
+    [dragState, displayZoneId, onAnchorChange, onEventChange]
   );
 
   const handlePointerUp = useCallback(
@@ -852,8 +931,9 @@ export function MiniCalendarView({
               >
                 <div className="flex h-full gap-4">
                   {visibleTimeline.map(
-                    ({ day, segments, events, wakeAnchors }) => {
+                    ({ day, segments, events }) => {
                       const isoDate = day.wakeDisplayDate;
+                      const dayKey = isoDate.toString();
                       const weekday = isoDate.toLocaleString("en-US", {
                         weekday: "short",
                       });
@@ -864,9 +944,9 @@ export function MiniCalendarView({
 
                       return (
                         <div
-                          key={day.wakeInstant.toString()}
+                          key={dayKey}
                           className="relative h-full flex-shrink-0"
-                          ref={registerDayColumn(day.dateTargetZone)}
+                          ref={registerDayColumn(dayKey)}
                           style={{
                             width: `${dayColumnWidth}px`,
                             minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
@@ -907,28 +987,13 @@ export function MiniCalendarView({
                               <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
                               {segments.map((segment, index) => (
                                 <div
-                                  key={`${segment.type}-${index}-${day.wakeInstant.toString()}`}
+                                  key={`${segment.type}-${index}-${dayKey}`}
                                   className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
                                   style={{
                                     top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,
                                     height: `${((segment.end - segment.start) / MINUTES_IN_DAY) * 100}%`,
                                   }}
                                 />
-                              ))}
-
-                              {wakeAnchors.map((anchor) => (
-                                <div
-                                  key={anchor.id}
-                                  className="absolute left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 text-[10px] font-medium text-emerald-500"
-                                  style={{
-                                    top: `${(anchor.minuteOffset / MINUTES_IN_DAY) * 100}%`,
-                                  }}
-                                >
-                                  <div className="flex -translate-y-1 items-center gap-2">
-                                    <div className="h-4 w-4 rounded-full border-2 border-emerald-400 bg-card shadow-sm" />
-                                    <span>{anchor.label}</span>
-                                  </div>
-                                </div>
                               ))}
 
                               {events.map((item) => {
@@ -938,8 +1003,41 @@ export function MiniCalendarView({
                                 const topPercent =
                                   (minuteOffset / MINUTES_IN_DAY) * 100;
                                 const isActive = expandedEventId === item.id;
+                                const isWake = item.kind === "wake";
                                 const isDragging =
                                   dragState?.eventId === item.id;
+                                const wakeDraggable =
+                                  isWake && item.editable && Boolean(onAnchorChange);
+                                const eventDraggable =
+                                  !isWake && Boolean(onEventChange);
+                                const markerBackground = isWake
+                                  ? isActive
+                                    ? "bg-emerald-600"
+                                    : "bg-emerald-500"
+                                  : isActive
+                                    ? "bg-primary"
+                                    : "bg-foreground";
+                                const cursorClass = isWake
+                                  ? wakeDraggable
+                                    ? isDragging
+                                      ? "cursor-grabbing"
+                                      : "cursor-grab"
+                                    : "cursor-pointer"
+                                  : eventDraggable
+                                    ? isDragging
+                                      ? "cursor-grabbing"
+                                      : "cursor-grab"
+                                    : "cursor-pointer";
+                                const focusRingClass = isWake
+                                  ? "focus-visible:ring-emerald-500/60"
+                                  : "focus-visible:ring-ring/70";
+                                const ariaLabel = isWake
+                                  ? `${item.title} at ${item.summary}`
+                                  : item.title;
+                                const eventDaySuffix =
+                                  !isWake && item.end
+                                    ? rangeDaySuffix(item.start, item.end).trim()
+                                    : "";
 
                                 return (
                                   <Fragment key={item.id}>
@@ -959,24 +1057,19 @@ export function MiniCalendarView({
                                       onClick={(clickEvent) =>
                                         handleButtonClick(clickEvent, item.id)
                                       }
-                                      className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${
-                                        isActive
-                                          ? "bg-primary"
-                                          : "bg-foreground"
-                                      } ${
-                                        isDragging
-                                          ? "cursor-grabbing"
-                                          : "cursor-grab"
-                                      } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70`}
+                                      className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
                                       style={{
                                         top: `calc(${topPercent}% - 12px)`,
                                       }}
-                                      aria-label={item.title}
+                                      aria-label={ariaLabel}
                                     >
+                                      {eventDaySuffix ? (
+                                        <span className="sr-only">{eventDaySuffix}</span>
+                                      ) : null}
                                     </button>
                                     {isActive ? (
                                       <div
-                                        className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"
+                                        className={`absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border ${isWake ? "border-emerald-500/60" : "border-border"} bg-card/95 p-3 text-xs shadow-lg`}
                                         style={{
                                           top: `calc(${topPercent}% - 16px)`,
                                         }}
@@ -987,7 +1080,33 @@ export function MiniCalendarView({
                                         <p className="text-muted-foreground">
                                           {item.summary}
                                         </p>
-                                        {onEditEvent ? (
+                                        {!isWake && item.end
+                                          ? (() => {
+                                              const daySuffix = rangeDaySuffix(
+                                                item.start,
+                                                item.end
+                                              ).trim();
+                                              return daySuffix
+                                                ? (
+                                                    <p className="mt-1 text-muted-foreground">
+                                                      {daySuffix}
+                                                    </p>
+                                                  )
+                                                : null;
+                                            })()
+                                          : null}
+                                        {isWake ? (
+                                          <div className="mt-2 space-y-1 text-muted-foreground">
+                                            <p>
+                                              Local time: {item.displayTime ?? item.summary}
+                                            </p>
+                                            <p>Zone: {item.zone}</p>
+                                            {item.note ? (
+                                              <p>Note: {item.note}</p>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                        {onEditEvent && !isWake ? (
                                           <Button
                                             type="button"
                                             size="sm"
@@ -998,6 +1117,17 @@ export function MiniCalendarView({
                                             }
                                           >
                                             Edit event
+                                          </Button>
+                                        ) : null}
+                                        {onEditAnchor && isWake && item.anchorId ? (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="mt-2"
+                                            onClick={() => onEditAnchor(item.anchorId!)}
+                                          >
+                                            Edit wake anchor
                                           </Button>
                                         ) : null}
                                       </div>
