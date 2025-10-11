@@ -160,41 +160,36 @@ describe("computeBrightWindow", () => {
       hour: 9,
       minute: 30,
     });
-    const sleepStart = wake.add({ hours: 8 });
-    const bright = computeBrightWindow(wake, sleepStart);
+    const brightEnd = computeBrightWindow(wake);
+    expect(brightEnd).toBeInstanceOf(Temporal.ZonedDateTime);
     expect(
-      bright.start
-        .toPlainTime()
-        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
-    ).toBe("09:30");
-    expect(
-      bright.end
+      brightEnd
         .toPlainTime()
         .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
     ).toBe("14:30");
   });
 
-  it("falls back to a short window when sleep encroaches", () => {
+  it("clamps the bright window to the end of the day", () => {
     const wake = Temporal.ZonedDateTime.from({
       timeZone: "Asia/Taipei",
       year: 2024,
       month: 10,
       day: 20,
-      hour: 9,
-      minute: 0,
+      hour: 23,
+      minute: 30,
     });
-    const sleepStart = wake.add({ hours: 2 });
-    const bright = computeBrightWindow(wake, sleepStart);
+    const brightEnd = computeBrightWindow(wake);
     expect(
-      bright.start
+      brightEnd
         .toPlainTime()
         .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
-    ).toBe("09:00");
+    ).toBe("00:00");
     expect(
-      bright.end
-        .toPlainTime()
-        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
-    ).toBe("14:00");
+      Temporal.PlainDate.compare(
+        brightEnd.toPlainDate(),
+        wake.toPlainDate().add({ days: 1 })
+      )
+    ).toBe(0);
   });
 });
 
@@ -261,9 +256,7 @@ describe("computePlan", () => {
     expect(firstDay.wakeZoned).toBeInstanceOf(Temporal.ZonedDateTime);
     expect(firstDay.wakeDisplayDate).toBeInstanceOf(Temporal.PlainDate);
     expect(firstDay.sleepStartZoned).toBeInstanceOf(Temporal.ZonedDateTime);
-    expect(firstDay.sleepStartUtc).toBeInstanceOf(Temporal.Instant);
     expect(firstDay.brightEndZoned).toBeInstanceOf(Temporal.ZonedDateTime);
-    expect(firstDay.brightEndUtc).toBeInstanceOf(Temporal.Instant);
     firstDay.anchors.forEach((anchor) => {
       expect(anchor.instant).toBeInstanceOf(Temporal.Instant);
     });
@@ -317,8 +310,13 @@ describe("computePlan", () => {
     const computed = computePlan(plan);
     const firstDay = computed.days[0];
     expect(firstDay.wakeTimeLocal).toBe("23:30");
-    expect(firstDay.brightEndLocal).toBe("00:00");
-    const brightDurationMinutes = firstDay.brightEndUtc
+    expect(
+      firstDay.brightEndZoned
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 })
+    ).toBe("00:00");
+    const brightDurationMinutes = firstDay.brightEndZoned
+      .toInstant()
       .since(firstDay.wakeInstant)
       .total({ unit: "minutes" });
     expect(brightDurationMinutes).toBe(30);

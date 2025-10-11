@@ -65,11 +65,8 @@ export type DayComputed = {
   changeThisDayHours: number;
   sleepStartLocal: string;
   sleepStartZoned: Temporal.ZonedDateTime;
-  sleepStartUtc: Temporal.Instant;
   wakeTimeLocal: string;
-  brightEndLocal: string;
   brightEndZoned: Temporal.ZonedDateTime;
-  brightEndUtc: Temporal.Instant;
   anchors: DayAnchorInfo[];
 };
 
@@ -337,10 +334,8 @@ export function interpolateDailyWakeTimes(
 }
 
 export function computeBrightWindow(
-  wake: Temporal.ZonedDateTime,
-  _sleepStart: Temporal.ZonedDateTime
-): { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime } {
-  const brightStart = wake;
+  wake: Temporal.ZonedDateTime
+): Temporal.ZonedDateTime {
   const brightEnd = wake.add({ hours: 5 });
 
   const zoneId = wake.timeZoneId;
@@ -358,15 +353,14 @@ export function computeBrightWindow(
   });
   const dayEnd = dayStart.add({ days: 1 });
 
-  let clampedStart = brightStart;
-  let clampedEnd = brightEnd;
-
+  let effectiveStart = wake;
   if (
-    Temporal.Instant.compare(clampedStart.toInstant(), dayStart.toInstant()) < 0
+    Temporal.Instant.compare(effectiveStart.toInstant(), dayStart.toInstant()) < 0
   ) {
-    clampedStart = dayStart;
+    effectiveStart = dayStart;
   }
 
+  let clampedEnd = brightEnd;
   if (
     Temporal.Instant.compare(clampedEnd.toInstant(), dayEnd.toInstant()) > 0
   ) {
@@ -376,13 +370,13 @@ export function computeBrightWindow(
   if (
     Temporal.Instant.compare(
       clampedEnd.toInstant(),
-      clampedStart.toInstant()
+      effectiveStart.toInstant()
     ) <= 0
   ) {
-    return { start: clampedStart, end: clampedStart };
+    return effectiveStart;
   }
 
-  return { start: clampedStart, end: clampedEnd };
+  return clampedEnd;
 }
 
 const projectEvent = (
@@ -539,24 +533,21 @@ export function computePlan(core: CorePlan): ComputedView {
     maxEarlierPerDay: core.params.maxShiftEarlierPerDayHours,
   });
 
-  const wakeEntries = [...wakeSchedule.entries()]
-    .map(([dateKey, wake]) => ({ dateKey, wake }))
-    .sort((a, b) =>
-      Temporal.Instant.compare(a.wake.toInstant(), b.wake.toInstant())
-    );
+  const wakeEntries = [...wakeSchedule.values()].sort((a, b) =>
+    Temporal.Instant.compare(a.toInstant(), b.toInstant())
+  );
 
   const days: DayComputed[] = [];
   const perDayShifts: number[] = [];
   let previousSleepStart: Temporal.ZonedDateTime | undefined;
 
-  for (const entry of wakeEntries) {
-    const wake = entry.wake;
+  for (const wake of wakeEntries) {
     const wakeInstant = wake.toInstant();
     const sleepStart = wake.subtract(sleepDuration);
     const sleepStartDisplay = sleepStart.withTimeZone(displayZone);
     const wakeDisplay = wake.withTimeZone(displayZone);
-    const brightWindow = computeBrightWindow(wake, sleepStart);
-    const brightEndDisplay = brightWindow.end.withTimeZone(displayZone);
+    const brightEnd = computeBrightWindow(wake);
+    const brightEndDisplay = brightEnd.withTimeZone(displayZone);
 
     let changeHours = 0;
     if (previousSleepStart) {
@@ -573,9 +564,6 @@ export function computePlan(core: CorePlan): ComputedView {
     const wakeTimeLocal = wakeDisplay
       .toPlainTime()
       .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-    const brightEndLocal = brightEndDisplay
-      .toPlainTime()
-      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
     days.push({
       wakeInstant,
@@ -584,10 +572,7 @@ export function computePlan(core: CorePlan): ComputedView {
       changeThisDayHours: changeHours,
       sleepStartLocal,
       sleepStartZoned: sleepStartDisplay,
-      sleepStartUtc: sleepStart.toInstant(),
-      brightEndLocal,
       brightEndZoned: brightEndDisplay,
-      brightEndUtc: brightWindow.end.toInstant(),
       wakeTimeLocal,
       anchors:
         anchorMap.get(wakeInstant.toString())?.map((anchor) => ({ ...anchor })) ??
