@@ -163,27 +163,19 @@ export function Timeline({
       { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }
     >();
     computed.days.forEach((day) => {
-      const sleepStart = Temporal.ZonedDateTime.from(
-        day.sleepStartZoned
-      ).withTimeZone(displayZoneId);
-      const sleepEnd = Temporal.ZonedDateTime.from(
-        day.sleepEndZoned
-      ).withTimeZone(displayZoneId);
+      const sleepStart = day.sleepStartZoned.withTimeZone(displayZoneId);
+      const sleepEnd = day.sleepEndZoned.withTimeZone(displayZoneId);
       const entry = { start: sleepStart, end: sleepEnd };
-      daySleepWindows.set(day.dateTargetZone, entry);
+      daySleepWindows.set(day.wakeDisplayDate.toString(), entry);
       daySleepWindows.set(sleepStart.toPlainDate().toString(), entry);
       daySleepWindows.set(sleepEnd.toPlainDate().toString(), entry);
     });
 
     computed.projectedEvents.forEach((event) => {
       try {
-        const start = Temporal.ZonedDateTime.from(
-          event.startZoned
-        ).withTimeZone(displayZoneId);
+        const start = event.startZoned.withTimeZone(displayZoneId);
         const end = event.endZoned
-          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(
-              displayZoneId
-            )
+          ? event.endZoned.withTimeZone(displayZoneId)
           : undefined;
         const key = start.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
@@ -220,9 +212,7 @@ export function Timeline({
       .filter((anchor) => anchorIds.has(anchor.id))
       .map<TimelineAnchor | null>((anchor) => {
         try {
-          const zoned = Temporal.ZonedDateTime.from(
-            anchor.zonedDateTime
-          ).withTimeZone(displayZoneId);
+          const zoned = anchor.zonedDateTime.withTimeZone(displayZoneId);
           const original = plan.anchors.find((item) => item.id === anchor.id);
           if (!original) {
             return null;
@@ -259,7 +249,7 @@ export function Timeline({
   }, [editableAnchors]);
 
   const calendarDays = useMemo(
-    () => computed.days.map((day) => day.dateTargetZone),
+    () => computed.days.map((day) => day.wakeInstant.toString()),
     [computed.days]
   );
 
@@ -518,27 +508,28 @@ export function Timeline({
       </div>
       <div className="overflow-x-auto">
         <div className="flex min-w-full gap-4">
-          {calendarDays.map((isoDate) => {
+          {calendarDays.map((wakeInstantIso) => {
             const day = computed.days.find(
-              (item) => item.dateTargetZone === isoDate
+              (item) => item.wakeInstant.toString() === wakeInstantIso
             );
             if (!day) {
               return null;
             }
-            const events = eventsByDay.get(isoDate) ?? [];
-            const anchors = anchorsByDay.get(isoDate) ?? [];
-            const dateObj = Temporal.PlainDate.from(isoDate);
+            const dayKey = day.wakeDisplayDate.toString();
+            const events = eventsByDay.get(dayKey) ?? [];
+            const anchors = anchorsByDay.get(dayKey) ?? [];
+            const dateObj = day.wakeDisplayDate;
             const weekday = dateObj.toLocaleString("en-US", {
               weekday: "short",
             });
 
             let sleepSegment: { top: number; height: number } | null = null;
-            const sleepStartDisplay = Temporal.ZonedDateTime.from(
-              day.sleepStartZoned
-            ).withTimeZone(displayZoneId);
-            const sleepEndDisplay = Temporal.ZonedDateTime.from(
-              day.sleepEndZoned
-            ).withTimeZone(displayZoneId);
+            const sleepStartDisplay = day.sleepStartZoned.withTimeZone(
+              displayZoneId
+            );
+            const sleepEndDisplay = day.sleepEndZoned.withTimeZone(
+              displayZoneId
+            );
             const sleepStartMinutes = clampMinutes(
               minutesSinceStartOfDay(sleepStartDisplay)
             );
@@ -560,12 +551,12 @@ export function Timeline({
             }
 
             let brightSegment: { top: number; height: number } | null = null;
-            const brightStartDisplay = Temporal.ZonedDateTime.from(
-              day.brightStartZoned
-            ).withTimeZone(displayZoneId);
-            const brightEndDisplay = Temporal.ZonedDateTime.from(
-              day.brightEndZoned
-            ).withTimeZone(displayZoneId);
+            const brightStartDisplay = day.brightStartZoned.withTimeZone(
+              displayZoneId
+            );
+            const brightEndDisplay = day.brightEndZoned.withTimeZone(
+              displayZoneId
+            );
             const brightStartMinutes = clampMinutes(
               minutesSinceStartOfDay(brightStartDisplay)
             );
@@ -719,16 +710,7 @@ export function Timeline({
                       timeStepMinutes
                     );
                     const timeSuffix = item.end
-                      ? rangeDaySuffix(
-                          item.start.toString({
-                            smallestUnit: "minute",
-                            fractionalSecondDigits: 0,
-                          }),
-                          item.end.toString({
-                            smallestUnit: "minute",
-                            fractionalSecondDigits: 0,
-                          })
-                        )
+                      ? rangeDaySuffix(item.start, item.end)
                       : "";
                     return (
                       <button

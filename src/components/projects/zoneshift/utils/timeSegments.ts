@@ -15,9 +15,17 @@ export const describeDayDelta = (difference: number) => {
   return ` (-${magnitude} ${unit})`;
 };
 
-export const rangeDaySuffix = (startIso: string, endIso: string) => {
-  const start = Temporal.ZonedDateTime.from(startIso);
-  const end = Temporal.ZonedDateTime.from(endIso);
+const toZonedDateTime = (value: Temporal.ZonedDateTime | string) =>
+  typeof value === "string"
+    ? Temporal.ZonedDateTime.from(value)
+    : value;
+
+export const rangeDaySuffix = (
+  startValue: Temporal.ZonedDateTime | string,
+  endValue: Temporal.ZonedDateTime | string
+) => {
+  const start = toZonedDateTime(startValue);
+  const end = toZonedDateTime(endValue);
   const dayDifference = Temporal.PlainDate.compare(
     end.toPlainDate(),
     start.toPlainDate()
@@ -26,12 +34,12 @@ export const rangeDaySuffix = (startIso: string, endIso: string) => {
 };
 
 export const formatRangeLabel = (
-  startIso: string,
-  endIso: string,
+  startValue: Temporal.ZonedDateTime | string,
+  endValue: Temporal.ZonedDateTime | string,
   options?: { separator?: string }
 ) => {
-  const start = Temporal.ZonedDateTime.from(startIso);
-  const end = Temporal.ZonedDateTime.from(endIso);
+  const start = toZonedDateTime(startValue);
+  const end = toZonedDateTime(endValue);
   const separator = options?.separator ?? " – ";
 
   const startLabel = start
@@ -45,7 +53,7 @@ export const formatRangeLabel = (
     end.toInstant(),
     start.toInstant()
   );
-  const suffix = rangeDaySuffix(startIso, endIso);
+  const suffix = rangeDaySuffix(start, end);
 
   if (instantComparison === 0) {
     return `${startLabel}${suffix}`;

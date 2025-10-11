@@ -47,13 +47,9 @@ export function CalendarListView({
     const mapping = new Map<string, CalendarEvent[]>();
     computed.projectedEvents.forEach((event) => {
       try {
-        const start = Temporal.ZonedDateTime.from(
-          event.startZoned
-        ).withTimeZone(displayZoneId);
+        const start = event.startZoned.withTimeZone(displayZoneId);
         const end = event.endZoned
-          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(
-              displayZoneId
-            )
+          ? event.endZoned.withTimeZone(displayZoneId)
           : undefined;
         const key = start.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
@@ -79,9 +75,7 @@ export function CalendarListView({
     const mapping = new Map<string, CalendarAnchor[]>();
     computed.projectedAnchors.forEach((anchor) => {
       try {
-        const zoned = Temporal.ZonedDateTime.from(
-          anchor.zonedDateTime
-        ).withTimeZone(displayZoneId);
+        const zoned = anchor.zonedDateTime.withTimeZone(displayZoneId);
         const key = zoned.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
         bucket.push({
@@ -111,29 +105,19 @@ export function CalendarListView({
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {computed.days.map((day) => {
-        const targetDate = Temporal.PlainDate.from(day.dateTargetZone);
-        const dayInDisplayZone = Temporal.ZonedDateTime.from({
-          timeZone: displayZoneId,
-          year: targetDate.year,
-          month: targetDate.month,
-          day: targetDate.day,
-          hour: 0,
-          minute: 0,
-        });
-        const dayKey = dayInDisplayZone.toPlainDate().toString();
+        const wakeDate = day.wakeDisplayDate;
+        const dayKey = wakeDate.toString();
         const events = eventsByDay.get(dayKey) ?? [];
         const anchors = anchorsByDay.get(dayKey) ?? [];
-        const weekday = dayInDisplayZone.toLocaleString("en-US", {
-          weekday: "short",
-        });
-        const dateLabel = dayInDisplayZone.toLocaleString("en-US", {
+        const weekday = wakeDate.toLocaleString("en-US", { weekday: "short" });
+        const dateLabel = wakeDate.toLocaleString("en-US", {
           month: "short",
           day: "numeric",
         });
 
         return (
           <article
-            key={day.dateTargetZone}
+            key={day.wakeInstant.toString()}
             className="flex h-full flex-col gap-4 rounded-lg border bg-card/70 p-4 shadow-sm"
           >
             <header className="flex items-baseline justify-between text-sm text-foreground">

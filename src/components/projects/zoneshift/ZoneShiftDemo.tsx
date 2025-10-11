@@ -25,8 +25,8 @@ const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
   table: "Table View",
 };
 
-const formatProjectedTime = (value: string) => {
-  const zdt = Temporal.ZonedDateTime.from(value);
+const formatProjectedTime = (value: Temporal.ZonedDateTime) => {
+  const zdt = value;
   const month = String(zdt.month).padStart(2, "0");
   const day = String(zdt.day).padStart(2, "0");
   const time = zdt

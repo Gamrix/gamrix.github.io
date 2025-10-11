@@ -137,27 +137,13 @@ export function MiniCalendarView({
     const mapping = new Map<string, MiniEvent[]>();
     computed.projectedEvents.forEach((event) => {
       try {
-        const start = Temporal.ZonedDateTime.from(
-          event.startZoned
-        ).withTimeZone(displayZoneId);
+        const start = event.startZoned.withTimeZone(displayZoneId);
         const end = event.endZoned
-          ? Temporal.ZonedDateTime.from(event.endZoned).withTimeZone(
-              displayZoneId
-            )
+          ? event.endZoned.withTimeZone(displayZoneId)
           : undefined;
         const key = start.toPlainDate().toString();
         const summary = end
-          ? formatRangeLabel(
-              start.toString({
-                smallestUnit: "minute",
-                fractionalSecondDigits: 0,
-              }),
-              end.toString({
-                smallestUnit: "minute",
-                fractionalSecondDigits: 0,
-              }),
-              { separator: " → " }
-            )
+          ? formatRangeLabel(start, end, { separator: " → " })
           : formatEventTime(start);
         const bucket = mapping.get(key) ?? [];
         bucket.push({ id: event.id, title: event.title, start, end, summary });
@@ -175,10 +161,8 @@ export function MiniCalendarView({
   }, [computed.projectedEvents, displayZoneId]);
 
   const timelineByDay = useMemo(() => {
-    const toMinutes = (iso: string) => {
-      return minutesSinceStartOfDay(
-        Temporal.ZonedDateTime.from(iso).withTimeZone(displayZoneId)
-      );
+    const toMinutes = (value: Temporal.ZonedDateTime) => {
+      return minutesSinceStartOfDay(value.withTimeZone(displayZoneId));
     };
 
     return computed.days.map((day) => {
@@ -202,9 +186,7 @@ export function MiniCalendarView({
       const wakeAnchors: MiniAnchor[] = day.anchors
         .filter((anchor) => anchor.kind === "wake")
         .map((anchor) => {
-          const zdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
-            displayZoneId
-          );
+          const zdt = anchor.instant.toZonedDateTimeISO(displayZoneId);
           const minutes = getMinutesFromZdt(zdt);
           return {
             id: anchor.id,
@@ -216,7 +198,7 @@ export function MiniCalendarView({
         })
         .filter((item): item is MiniAnchor => item !== null);
 
-      const key = Temporal.PlainDate.from(day.dateTargetZone).toString();
+      const key = day.wakeDisplayDate.toString();
       const events = eventsByDay.get(key) ?? [];
       return { day, segments, events, wakeAnchors };
     });
@@ -427,9 +409,7 @@ export function MiniCalendarView({
                 <div className="flex h-full gap-4">
                   {visibleTimeline.map(
                     ({ day, segments, events, wakeAnchors }) => {
-                      const isoDate = Temporal.PlainDate.from(
-                        day.dateTargetZone
-                      );
+                      const isoDate = day.wakeDisplayDate;
                       const weekday = isoDate.toLocaleString("en-US", {
                         weekday: "short",
                       });
@@ -440,7 +420,7 @@ export function MiniCalendarView({
 
                       return (
                         <div
-                          key={day.dateTargetZone}
+                          key={day.wakeInstant.toString()}
                           className="relative h-full flex-shrink-0"
                           style={{
                             width: `${dayColumnWidth}px`,
@@ -458,7 +438,7 @@ export function MiniCalendarView({
                               <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
                               {segments.map((segment, index) => (
                                 <div
-                                  key={`${segment.type}-${index}-${day.dateTargetZone}`}
+                                  key={`${segment.type}-${index}-${day.wakeInstant.toString()}`}
                                   className={`absolute left-1/2 z-10 w-[6px] -translate-x-1/2 rounded-full ${colourForSegment(segment.type)}`}
                                   style={{
                                     top: `${(segment.start / MINUTES_IN_DAY) * 100}%`,

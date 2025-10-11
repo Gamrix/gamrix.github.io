@@ -9,8 +9,7 @@ const formatChange = (value: number) => {
   return value.toFixed(1).replace(/\.0$/, "");
 };
 
-const formatDayLabel = (isoDate: string) => {
-  const date = Temporal.PlainDate.from(isoDate);
+const formatDayLabel = (date: Temporal.PlainDate) => {
   const month = String(date.month).padStart(2, "0");
   const day = String(date.day).padStart(2, "0");
   const weekday = date.toLocaleString("en-US", { weekday: "short" });
@@ -69,16 +68,16 @@ export function ScheduleTable({
         </thead>
         <tbody className="divide-y divide-border/70">
           {computed.days.map((day) => {
-            const { dateLabel, weekday } = formatDayLabel(day.dateTargetZone);
+            const { dateLabel, weekday } = formatDayLabel(day.wakeDisplayDate);
             return (
-              <tr key={day.dateTargetZone} className="hover:bg-muted/20">
+              <tr key={day.wakeInstant.toString()} className="hover:bg-muted/20">
                 <td className="px-6 py-4 align-middle">
                   <div className="font-medium text-foreground">{dateLabel}</div>
                   <div className="text-xs text-muted-foreground">{weekday}</div>
                   {day.anchors.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {day.anchors.map((anchor) => {
-                        const anchorTime = Temporal.Instant.from(anchor.instant)
+                        const anchorTime = anchor.instant
                           .toZonedDateTimeISO(displayZoneId)
                           .toPlainTime()
                           .toString({

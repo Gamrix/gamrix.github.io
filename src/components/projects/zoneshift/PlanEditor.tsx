@@ -59,10 +59,10 @@ export function PlanEditor() {
   const lastDay = computed.days[computed.days.length - 1];
 
   const firstSleepLabel = firstDay
-    ? `${Temporal.PlainDate.from(firstDay.dateTargetZone).toLocaleString("en-US", { weekday: "short" })} @ ${firstDay.sleepStartLocal}`
+    ? `${firstDay.wakeDisplayDate.toLocaleString("en-US", { weekday: "short" })} @ ${firstDay.sleepStartLocal}`
     : "--";
   const finalSleepLabel = lastDay
-    ? `${Temporal.PlainDate.from(lastDay.dateTargetZone).toLocaleString("en-US", { weekday: "short" })} @ ${lastDay.sleepStartLocal}`
+    ? `${lastDay.wakeDisplayDate.toLocaleString("en-US", { weekday: "short" })} @ ${lastDay.sleepStartLocal}`
     : "--";
 
   return (
