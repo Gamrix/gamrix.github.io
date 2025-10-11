@@ -41,8 +41,10 @@
 - Use Zod for types and schemas. Avoid TypeScript interfaces where Zod suffices.
 - Do not implement both a Zod type and a TypeScript interface for the same schema.
 
-
 ## Agent Behavior
+
+- Leave the code better than when you found it. If you see a small improvement
+  based on the AGENTS.md rules that can be made, make it.
 
 ### Next Task Suggestion
 
