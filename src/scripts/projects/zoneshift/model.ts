@@ -60,21 +60,16 @@ export type CorePlan = z.infer<typeof CorePlanSchema>;
 
 export type DayComputed = {
   wakeInstant: Temporal.Instant;
+  wakeZoned: Temporal.ZonedDateTime;
   wakeDisplayDate: Temporal.PlainDate;
   changeThisDayHours: number;
   sleepStartLocal: string;
-  sleepEndLocal: string;
   sleepStartZoned: Temporal.ZonedDateTime;
-  sleepEndZoned: Temporal.ZonedDateTime;
   sleepStartUtc: Temporal.Instant;
-  sleepEndUtc: Temporal.Instant;
-  brightStartLocal: string;
-  brightEndLocal: string;
-  brightStartZoned: Temporal.ZonedDateTime;
-  brightEndZoned: Temporal.ZonedDateTime;
-  brightStartUtc: Temporal.Instant;
-  brightEndUtc: Temporal.Instant;
   wakeTimeLocal: string;
+  brightEndLocal: string;
+  brightEndZoned: Temporal.ZonedDateTime;
+  brightEndUtc: Temporal.Instant;
   anchors: DayAnchorInfo[];
 };
 
@@ -561,7 +556,6 @@ export function computePlan(core: CorePlan): ComputedView {
     const sleepStartDisplay = sleepStart.withTimeZone(displayZone);
     const wakeDisplay = wake.withTimeZone(displayZone);
     const brightWindow = computeBrightWindow(wake, sleepStart);
-    const brightStartDisplay = brightWindow.start.withTimeZone(displayZone);
     const brightEndDisplay = brightWindow.end.withTimeZone(displayZone);
 
     let changeHours = 0;
@@ -576,34 +570,23 @@ export function computePlan(core: CorePlan): ComputedView {
     const sleepStartLocal = sleepStartDisplay
       .toPlainTime()
       .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-    const sleepEndLocal = wakeDisplay
-      .toPlainTime()
-      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-    const brightStartLocal = brightStartDisplay
+    const wakeTimeLocal = wakeDisplay
       .toPlainTime()
       .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
     const brightEndLocal = brightEndDisplay
       .toPlainTime()
       .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-    const wakeTimeLocal = wakeDisplay
-      .toPlainTime()
-      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
 
     days.push({
       wakeInstant,
+      wakeZoned: wakeDisplay,
       wakeDisplayDate: wakeDisplay.toPlainDate(),
       changeThisDayHours: changeHours,
       sleepStartLocal,
-      sleepEndLocal,
       sleepStartZoned: sleepStartDisplay,
-      sleepEndZoned: wakeDisplay,
       sleepStartUtc: sleepStart.toInstant(),
-      sleepEndUtc: wakeInstant,
-      brightStartLocal,
       brightEndLocal,
-      brightStartZoned: brightStartDisplay,
       brightEndZoned: brightEndDisplay,
-      brightStartUtc: brightWindow.start.toInstant(),
       brightEndUtc: brightWindow.end.toInstant(),
       wakeTimeLocal,
       anchors:

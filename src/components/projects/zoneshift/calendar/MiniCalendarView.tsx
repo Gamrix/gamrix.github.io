@@ -251,7 +251,7 @@ export function MiniCalendarView({
   const openEventComposer = useCallback(
     (day: ComputedView["days"][number]) => {
       const dayKey = day.wakeDisplayDate.toString();
-      const startDisplay = day.brightStartZoned.withTimeZone(displayZoneId);
+      const startDisplay = day.wakeZoned.withTimeZone(displayZoneId);
       const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
       setEventDraft({
         title: "",
@@ -440,8 +440,8 @@ export function MiniCalendarView({
 
     return computed.days.map((day) => {
       const sleepStart = toMinutes(day.sleepStartZoned);
-      const sleepEnd = toMinutes(day.sleepEndZoned);
-      const brightStart = toMinutes(day.brightStartZoned);
+      const sleepEnd = toMinutes(day.wakeZoned);
+      const brightStart = toMinutes(day.wakeZoned);
       const brightEnd = toMinutes(day.brightEndZoned);
 
       let segments: TimeSegment[] = [

@@ -193,7 +193,7 @@ export function Timeline({
     >();
     computed.days.forEach((day) => {
       const sleepStart = day.sleepStartZoned.withTimeZone(displayZoneId);
-      const sleepEnd = day.sleepEndZoned.withTimeZone(displayZoneId);
+      const sleepEnd = day.wakeZoned.withTimeZone(displayZoneId);
       const entry = { start: sleepStart, end: sleepEnd };
       daySleepWindows.set(day.wakeDisplayDate.toString(), entry);
       daySleepWindows.set(sleepStart.toPlainDate().toString(), entry);
@@ -643,9 +643,7 @@ export function Timeline({
             const sleepStartDisplay = day.sleepStartZoned.withTimeZone(
               displayZoneId
             );
-            const sleepEndDisplay = day.sleepEndZoned.withTimeZone(
-              displayZoneId
-            );
+            const sleepEndDisplay = day.wakeZoned.withTimeZone(displayZoneId);
             const sleepStartMinutes = clampMinutes(
               minutesSinceStartOfDay(sleepStartDisplay)
             );
@@ -667,7 +665,7 @@ export function Timeline({
             }
 
             let brightSegment: { top: number; height: number } | null = null;
-            const brightStartDisplay = day.brightStartZoned.withTimeZone(
+            const brightStartDisplay = day.wakeZoned.withTimeZone(
               displayZoneId
             );
             const brightEndDisplay = day.brightEndZoned.withTimeZone(

@@ -145,7 +145,7 @@ export function CalendarListView({
     day: ComputedView["days"][number],
     dayKey: string
   ) => {
-    const startDisplay = day.brightStartZoned.withTimeZone(displayZoneId);
+    const startDisplay = day.wakeZoned.withTimeZone(displayZoneId);
     const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
     setEventDraft({
       title: "",
@@ -295,7 +295,7 @@ export function CalendarListView({
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Sleep</dt>
                 <dd className="font-medium text-foreground">
-                  {formatRangeLabel(day.sleepStartZoned, day.sleepEndZoned)}
+                  {formatRangeLabel(day.sleepStartZoned, day.wakeZoned)}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
@@ -307,7 +307,7 @@ export function CalendarListView({
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Bright</dt>
                 <dd className="font-medium text-foreground">
-                  {formatRangeLabel(day.brightStartZoned, day.brightEndZoned)}
+                  {formatRangeLabel(day.wakeZoned, day.brightEndZoned)}
                 </dd>
               </div>
             </dl>

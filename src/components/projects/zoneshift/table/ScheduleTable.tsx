@@ -169,14 +169,14 @@ export function ScheduleTable({
                     {day.sleepStartLocal}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
-                    {day.sleepEndLocal}
-                    {rangeDaySuffix(day.sleepStartZoned, day.sleepEndZoned)}
+                    {day.wakeTimeLocal}
+                    {rangeDaySuffix(day.sleepStartZoned, day.wakeZoned)}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
                     {day.wakeTimeLocal}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
-                    {formatRangeLabel(day.brightStartZoned, day.brightEndZoned)}
+                    {formatRangeLabel(day.wakeZoned, day.brightEndZoned)}
                   </td>
                 </tr>
               );

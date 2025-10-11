@@ -258,14 +258,11 @@ describe("computePlan", () => {
     const computed = computePlan(plan);
     const firstDay = computed.days[0];
     expect(firstDay.wakeInstant).toBeInstanceOf(Temporal.Instant);
+    expect(firstDay.wakeZoned).toBeInstanceOf(Temporal.ZonedDateTime);
     expect(firstDay.wakeDisplayDate).toBeInstanceOf(Temporal.PlainDate);
     expect(firstDay.sleepStartZoned).toBeInstanceOf(Temporal.ZonedDateTime);
-    expect(firstDay.sleepEndZoned).toBeInstanceOf(Temporal.ZonedDateTime);
     expect(firstDay.sleepStartUtc).toBeInstanceOf(Temporal.Instant);
-    expect(firstDay.sleepEndUtc).toBeInstanceOf(Temporal.Instant);
-    expect(firstDay.brightStartZoned).toBeInstanceOf(Temporal.ZonedDateTime);
     expect(firstDay.brightEndZoned).toBeInstanceOf(Temporal.ZonedDateTime);
-    expect(firstDay.brightStartUtc).toBeInstanceOf(Temporal.Instant);
     expect(firstDay.brightEndUtc).toBeInstanceOf(Temporal.Instant);
     firstDay.anchors.forEach((anchor) => {
       expect(anchor.instant).toBeInstanceOf(Temporal.Instant);
@@ -320,10 +317,9 @@ describe("computePlan", () => {
     const computed = computePlan(plan);
     const firstDay = computed.days[0];
     expect(firstDay.wakeTimeLocal).toBe("23:30");
-    expect(firstDay.brightStartLocal).toBe("23:30");
     expect(firstDay.brightEndLocal).toBe("00:00");
     const brightDurationMinutes = firstDay.brightEndUtc
-      .since(firstDay.brightStartUtc)
+      .since(firstDay.wakeInstant)
       .total({ unit: "minutes" });
     expect(brightDurationMinutes).toBe(30);
     expect(

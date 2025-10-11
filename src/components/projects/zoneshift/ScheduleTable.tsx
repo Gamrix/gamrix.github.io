@@ -78,7 +78,7 @@ export function ScheduleTable({
 
   const openEventComposer = (day: ComputedView["days"][number]) => {
     const dayKey = day.wakeDisplayDate.toString();
-    const startDisplay = day.brightStartZoned.withTimeZone(displayZoneId);
+    const startDisplay = day.wakeZoned.withTimeZone(displayZoneId);
     const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
     setEventDraft({
       title: "",
@@ -320,14 +320,14 @@ export function ScheduleTable({
                   {day.sleepStartLocal}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {day.sleepEndLocal}
-                  {rangeDaySuffix(day.sleepStartZoned, day.sleepEndZoned)}
+                  {day.wakeTimeLocal}
+                  {rangeDaySuffix(day.sleepStartZoned, day.wakeZoned)}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
                   {day.wakeTimeLocal}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {formatRangeLabel(day.brightStartZoned, day.brightEndZoned)}
+                  {formatRangeLabel(day.wakeZoned, day.brightEndZoned)}
                 </td>
               </tr>
             );
