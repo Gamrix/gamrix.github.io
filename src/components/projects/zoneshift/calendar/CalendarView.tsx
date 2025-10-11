@@ -15,6 +15,7 @@ type CalendarViewProps = {
   onEventChange?: CalendarEventChangeHandler;
   onAnchorChange?: CalendarAnchorChangeHandler;
   onAddAnchor?: CalendarAddAnchorHandler;
+  onAddEvent?: CalendarAddEventHandler;
 };
 
 type CalendarEventChangeHandler = (
@@ -37,6 +38,13 @@ type CalendarAddAnchorHandler = (payload: {
   zone: string;
 }) => void;
 
+type CalendarAddEventHandler = (payload: {
+  title: string;
+  start: Temporal.ZonedDateTime;
+  end?: Temporal.ZonedDateTime;
+  zone: string;
+}) => void;
+
 export function CalendarView({
   plan,
   computed,
@@ -46,6 +54,7 @@ export function CalendarView({
   onEventChange,
   onAnchorChange,
   onAddAnchor,
+  onAddEvent,
 }: CalendarViewProps) {
   const timeStepMinutes = plan.prefs?.timeStepMinutes ?? 30;
 
@@ -60,6 +69,7 @@ export function CalendarView({
       onEventChange={onEventChange ?? ((..._args: Parameters<CalendarEventChangeHandler>) => undefined)}
       onAnchorChange={onAnchorChange ?? ((..._args: Parameters<CalendarAnchorChangeHandler>) => undefined)}
       onAddAnchor={onAddAnchor ?? ((..._args: Parameters<CalendarAddAnchorHandler>) => undefined)}
+      onAddEvent={onAddEvent ?? ((..._args: Parameters<CalendarAddEventHandler>) => undefined)}
     />
   );
 }

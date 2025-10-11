@@ -204,6 +204,75 @@ function ZoneShiftDemoComponent() {
     });
   };
 
+  const handleAddEvent = (payload: {
+    title: string;
+    start: Temporal.ZonedDateTime;
+    end?: Temporal.ZonedDateTime;
+    zone: string;
+  }) => {
+    const newEventId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `event-${Date.now()}`;
+    const step = planState.prefs?.timeStepMinutes ?? 30;
+    const startInZone = payload.start.withTimeZone(payload.zone);
+    const startOfDay = Temporal.ZonedDateTime.from({
+      timeZone: startInZone.timeZoneId,
+      year: startInZone.year,
+      month: startInZone.month,
+      day: startInZone.day,
+    });
+    const startMinutesRaw = startInZone
+      .since(startOfDay)
+      .total({ unit: "minutes" });
+    const startSnapped = Math.round(startMinutesRaw / step) * step;
+    const startMinutes = Math.max(0, Math.min(startSnapped, 24 * 60));
+    const snappedStart = startOfDay.add({ minutes: startMinutes });
+
+    let endInstant: string | undefined;
+    if (payload.end) {
+      const endInZone = payload.end.withTimeZone(payload.zone);
+      const endOfDay = Temporal.ZonedDateTime.from({
+        timeZone: endInZone.timeZoneId,
+        year: endInZone.year,
+        month: endInZone.month,
+        day: endInZone.day,
+      });
+      const endMinutesRaw = endInZone
+        .since(endOfDay)
+        .total({ unit: "minutes" });
+      const endSnapped = Math.round(endMinutesRaw / step) * step;
+      const endMinutes = Math.max(0, Math.min(endSnapped, 24 * 60));
+      const minEndMinutes = Math.max(endMinutes, startMinutes + step);
+      const snappedEnd = endOfDay.add({ minutes: minEndMinutes });
+      endInstant = snappedEnd.toInstant().toString();
+    }
+
+    const trimmedTitle = payload.title.trim();
+    const finalTitle = trimmedTitle.length > 0 ? trimmedTitle : "New event";
+
+    const newEvent = {
+      id: newEventId,
+      title: finalTitle,
+      start: snappedStart.toInstant().toString(),
+      end: (endInstant ?? snappedStart.add({ minutes: step }).toInstant().toString()),
+      zone: payload.zone,
+    };
+
+    setPlanState(
+      (prev) =>
+        ({
+          ...prev,
+          events: [...prev.events, newEvent].sort((a, b) =>
+            Temporal.Instant.compare(
+              Temporal.Instant.from(a.start),
+              Temporal.Instant.from(b.start)
+            )
+          ),
+        }) satisfies CorePlan
+    );
+  };
+
   const handleAnchorChange = (
     anchorId: string,
     payload: { instant: Temporal.ZonedDateTime; zone: string }
@@ -240,6 +309,8 @@ function ZoneShiftDemoComponent() {
     kind: "wake" | "sleep";
     zoned: Temporal.ZonedDateTime;
     zone: string;
+    note?: string;
+    autoSelect?: boolean;
   }) => {
     const newAnchorId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -260,11 +331,16 @@ function ZoneShiftDemoComponent() {
               kind: payload.kind,
               zone: payload.zone,
               instant: instantIso,
+              ...(payload.note
+                ? {
+                    note: payload.note.trim().length > 0 ? payload.note.trim() : undefined,
+                  }
+                : {}),
             },
           ],
         }) satisfies CorePlan
     );
-    setActiveAnchorId(newAnchorId);
+    setActiveAnchorId(payload.autoSelect === false ? null : newAnchorId);
   };
 
   const handleAnchorSave = (event: FormEvent<HTMLFormElement>) => {
@@ -395,6 +471,8 @@ function ZoneShiftDemoComponent() {
           displayZoneId={displayZoneId}
           onEditEvent={() => undefined}
           onEditAnchor={setActiveAnchorId}
+          onAddEvent={handleAddEvent}
+          onAddAnchor={handleAddAnchor}
         />
       ) : viewMode === "timeline" ? (
         <CalendarView
@@ -406,6 +484,7 @@ function ZoneShiftDemoComponent() {
           onEventChange={handleEventChange}
           onAnchorChange={handleAnchorChange}
           onAddAnchor={handleAddAnchor}
+          onAddEvent={handleAddEvent}
         />
       ) : viewMode === "mini" ? (
         <MiniCalendarView
@@ -413,12 +492,16 @@ function ZoneShiftDemoComponent() {
           displayZoneId={displayZoneId}
           onEditEvent={() => undefined}
           onEventChange={handleEventChange}
+          onAddEvent={handleAddEvent}
+          onAddAnchor={handleAddAnchor}
         />
       ) : (
         <ScheduleTable
           computed={computed}
           displayZoneId={displayZoneId}
           onEditAnchor={setActiveAnchorId}
+          onAddEvent={handleAddEvent}
+          onAddAnchor={handleAddAnchor}
         />
       )}
 

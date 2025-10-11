@@ -6,7 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
-import type { PointerEvent as ReactPointerEvent, MouseEvent } from "react";
+import type {
+  PointerEvent as ReactPointerEvent,
+  MouseEvent,
+  FormEvent,
+} from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +34,19 @@ type MiniCalendarViewProps = {
       zone: string;
     }
   ) => void;
+  onAddEvent?: (payload: {
+    title: string;
+    start: Temporal.ZonedDateTime;
+    end?: Temporal.ZonedDateTime;
+    zone: string;
+  }) => void;
+  onAddAnchor?: (payload: {
+    kind: "wake" | "sleep";
+    zoned: Temporal.ZonedDateTime;
+    zone: string;
+    note?: string;
+    autoSelect?: boolean;
+  }) => void;
 };
 
 type SegmentType = "sleep" | "bright" | "other";
@@ -182,6 +199,8 @@ export function MiniCalendarView({
   onEditEvent,
   onOpenPlanSettings,
   onEventChange,
+  onAddEvent,
+  onAddAnchor,
 }: MiniCalendarViewProps) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -191,6 +210,21 @@ export function MiniCalendarView({
   );
   const [containerWidth, setContainerWidth] = useState(0);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [composer, setComposer] = useState<
+    | null
+    | { type: "event"; dayKey: string }
+    | { type: "wake"; dayKey: string }
+  >(null);
+  const [eventDraft, setEventDraft] = useState({
+    title: "",
+    start: "",
+    end: "",
+  });
+  const [wakeDraft, setWakeDraft] = useState({
+    time: "",
+    note: "",
+  });
+  const [composerError, setComposerError] = useState<string | null>(null);
   const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const suppressClickRef = useRef(false);
 
@@ -207,6 +241,162 @@ export function MiniCalendarView({
       }
     },
     []
+  );
+
+  const closeComposer = useCallback(() => {
+    setComposer(null);
+    setComposerError(null);
+  }, []);
+
+  const openEventComposer = useCallback(
+    (day: ComputedView["days"][number]) => {
+      const dayKey = day.wakeDisplayDate.toString();
+      const startDisplay = day.brightStartZoned.withTimeZone(displayZoneId);
+      const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
+      setEventDraft({
+        title: "",
+        start: startDisplay
+          .toPlainTime()
+          .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        end: endDisplay
+          .toPlainTime()
+          .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      });
+      setComposer({ type: "event", dayKey });
+      setComposerError(null);
+    },
+    [displayZoneId]
+  );
+
+  const openWakeComposer = useCallback(
+    (day: ComputedView["days"][number]) => {
+      const dayKey = day.wakeDisplayDate.toString();
+      setWakeDraft({
+        time: day.wakeTimeLocal,
+        note: "",
+      });
+      setComposer({ type: "wake", dayKey });
+      setComposerError(null);
+    },
+    []
+  );
+
+  const handleEventComposerSubmit = useCallback(
+    (formEvent: FormEvent<HTMLFormElement>) => {
+      formEvent.preventDefault();
+      if (!composer || composer.type !== "event") {
+        return;
+      }
+      if (!onAddEvent) {
+        closeComposer();
+        return;
+      }
+      const day = computed.days.find(
+        (item) => item.wakeDisplayDate.toString() === composer.dayKey
+      );
+      if (!day) {
+        setComposerError("Unable to locate selected day");
+        return;
+      }
+      try {
+        const date = day.wakeDisplayDate;
+        const startTime = Temporal.PlainTime.from(eventDraft.start);
+        const startZoned = Temporal.ZonedDateTime.from({
+          timeZone: displayZoneId,
+          year: date.year,
+          month: date.month,
+          day: date.day,
+          hour: startTime.hour,
+          minute: startTime.minute,
+          second: startTime.second,
+        });
+        const endTime = Temporal.PlainTime.from(eventDraft.end);
+        let endZoned = Temporal.ZonedDateTime.from({
+          timeZone: displayZoneId,
+          year: date.year,
+          month: date.month,
+          day: date.day,
+          hour: endTime.hour,
+          minute: endTime.minute,
+          second: endTime.second,
+        });
+        if (Temporal.ZonedDateTime.compare(endZoned, startZoned) <= 0) {
+          endZoned = endZoned.add({ days: 1 });
+        }
+        onAddEvent({
+          title: eventDraft.title,
+          start: startZoned,
+          end: endZoned,
+          zone: displayZoneId,
+        });
+        closeComposer();
+      } catch (error) {
+        setComposerError(
+          error instanceof Error ? error.message : "Unable to add event"
+        );
+      }
+    },
+    [
+      closeComposer,
+      composer,
+      computed.days,
+      displayZoneId,
+      eventDraft,
+      onAddEvent,
+    ]
+  );
+
+  const handleWakeComposerSubmit = useCallback(
+    (formEvent: FormEvent<HTMLFormElement>) => {
+      formEvent.preventDefault();
+      if (!composer || composer.type !== "wake") {
+        return;
+      }
+      if (!onAddAnchor) {
+        closeComposer();
+        return;
+      }
+      const day = computed.days.find(
+        (item) => item.wakeDisplayDate.toString() === composer.dayKey
+      );
+      if (!day) {
+        setComposerError("Unable to locate selected day");
+        return;
+      }
+      try {
+        const date = day.wakeDisplayDate;
+        const time = Temporal.PlainTime.from(wakeDraft.time);
+        const zoned = Temporal.ZonedDateTime.from({
+          timeZone: displayZoneId,
+          year: date.year,
+          month: date.month,
+          day: date.day,
+          hour: time.hour,
+          minute: time.minute,
+          second: time.second,
+        });
+        onAddAnchor({
+          kind: "wake",
+          zoned,
+          zone: displayZoneId,
+          note: wakeDraft.note.trim().length > 0 ? wakeDraft.note : undefined,
+          autoSelect: false,
+        });
+        closeComposer();
+      } catch (error) {
+        setComposerError(
+          error instanceof Error ? error.message : "Unable to add wake time"
+        );
+      }
+    },
+    [
+      closeComposer,
+      composer,
+      computed.days,
+      displayZoneId,
+      onAddAnchor,
+      wakeDraft,
+    ]
   );
 
   const eventsByDay = useMemo(() => {
@@ -535,6 +725,18 @@ export function MiniCalendarView({
             visibleCount
         )
       : DAY_COLUMN_WIDTH_PX;
+  const composerDay = composer
+    ? computed.days.find(
+        (day) => day.wakeDisplayDate.toString() === composer.dayKey
+      )
+    : null;
+  const composerLabel = composerDay
+    ? composerDay.wakeDisplayDate.toLocaleString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
 
   return (
     <div className="space-y-4">
@@ -670,11 +872,35 @@ export function MiniCalendarView({
                             minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
                           }}
                         >
-                          <div className="absolute inset-x-0 top-0 flex h-10 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
-                            <div className="font-semibold text-foreground">
-                              {weekday}
+                          <div className="absolute inset-x-0 top-0 flex h-10 items-center justify-between px-2 text-xs text-muted-foreground">
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-semibold text-foreground">
+                                {weekday}
+                              </span>
+                              <span>{dateLabel}</span>
                             </div>
-                            <div>{dateLabel}</div>
+                            <div className="flex items-center gap-1">
+                              {onAddEvent ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openEventComposer(day)}
+                                  className="h-6 rounded-full border border-border bg-card px-2 text-[10px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  aria-label={`Add event on ${dateLabel}`}
+                                >
+                                  Event
+                                </button>
+                              ) : null}
+                              {onAddAnchor ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openWakeComposer(day)}
+                                  className="h-6 rounded-full border border-border bg-card px-2 text-[10px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                  aria-label={`Add wake anchor on ${dateLabel}`}
+                                >
+                                  Wake
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                           <div className="absolute inset-x-0 bottom-0 top-10">
                             <div className="relative h-full w-full overflow-visible">
@@ -786,11 +1012,146 @@ export function MiniCalendarView({
                     }
                   )}
                 </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      {composer ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
+          <div className="w-full max-w-sm space-y-3 rounded-xl border bg-card p-4 text-sm shadow-xl">
+            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              {composer.type === "event" ? "Add event" : "Add wake time"}
+            </div>
+            {composerLabel ? (
+              <div className="text-sm font-semibold text-foreground">
+                {composerLabel}
+              </div>
+            ) : null}
+            {composer.type === "event" ? (
+              <form
+                className="space-y-3"
+                onSubmit={handleEventComposerSubmit}
+              >
+                <label className="flex flex-col gap-1">
+                  Title
+                  <input
+                    type="text"
+                    value={eventDraft.title}
+                    onChange={(event) =>
+                      setEventDraft((prev) => ({
+                        ...prev,
+                        title: event.target.value,
+                      }))
+                    }
+                    placeholder="Describe the event"
+                    className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  />
+                </label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1">
+                    Starts
+                    <input
+                      type="time"
+                      required
+                      value={eventDraft.start}
+                      onChange={(event) =>
+                        setEventDraft((prev) => ({
+                          ...prev,
+                          start: event.target.value,
+                        }))
+                      }
+                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    Ends
+                    <input
+                      type="time"
+                      required
+                      value={eventDraft.end}
+                      onChange={(event) =>
+                        setEventDraft((prev) => ({
+                          ...prev,
+                          end: event.target.value,
+                        }))
+                      }
+                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </label>
+                </div>
+                {composerError ? (
+                  <p className="text-xs text-destructive">{composerError}</p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" size="sm">
+                    Save event
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={closeComposer}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <form className="space-y-3" onSubmit={handleWakeComposerSubmit}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1">
+                    Time
+                    <input
+                      type="time"
+                      required
+                      value={wakeDraft.time}
+                      onChange={(event) =>
+                        setWakeDraft((prev) => ({
+                          ...prev,
+                          time: event.target.value,
+                        }))
+                      }
+                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    Note
+                    <input
+                      type="text"
+                      value={wakeDraft.note}
+                      onChange={(event) =>
+                        setWakeDraft((prev) => ({
+                          ...prev,
+                          note: event.target.value,
+                        }))
+                      }
+                      placeholder="Optional context"
+                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </label>
+                </div>
+                {composerError ? (
+                  <p className="text-xs text-destructive">{composerError}</p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" size="sm">
+                    Save wake time
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={closeComposer}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

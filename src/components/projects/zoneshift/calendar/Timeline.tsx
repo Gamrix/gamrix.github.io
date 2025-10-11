@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+  PointerEvent as ReactPointerEvent,
+  FormEvent as ReactFormEvent,
+} from "react";
 import { Temporal } from "@js-temporal/polyfill";
 
+import { Button } from "@/components/ui/button";
 import type {
   ComputedView,
   CorePlan,
@@ -35,6 +39,12 @@ type TimelineProps = {
   onAddAnchor: (payload: {
     kind: "wake" | "sleep";
     zoned: Temporal.ZonedDateTime;
+    zone: string;
+  }) => void;
+  onAddEvent: (payload: {
+    title: string;
+    start: Temporal.ZonedDateTime;
+    end?: Temporal.ZonedDateTime;
     zone: string;
   }) => void;
 };
@@ -90,6 +100,18 @@ type ContextMenuState =
       clientX: number;
       clientY: number;
       minuteOffset: number;
+    };
+
+type EventComposerState =
+  | { visible: false }
+  | {
+      visible: true;
+      isoDate: string;
+      clientX: number;
+      clientY: number;
+      start: string;
+      end: string;
+      title: string;
     };
 
 const setPointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
@@ -148,12 +170,19 @@ export function Timeline({
   onEventChange,
   onAnchorChange,
   onAddAnchor,
+  onAddEvent,
 }: TimelineProps) {
   const [dragState, setDragState] = useState<DragState>(null);
   const [visibleRanges, setVisibleRanges] = useState<VisibleRanges>({});
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
   });
+  const [eventComposer, setEventComposer] = useState<EventComposerState>({
+    visible: false,
+  });
+  const [eventComposerError, setEventComposerError] = useState<string | null>(
+    null
+  );
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const eventsByDay = useMemo(() => {
@@ -438,6 +467,8 @@ export function Timeline({
         0,
         Math.min(offsetY / PIXELS_PER_MINUTE, CALENDAR_MINUTES)
       );
+      setEventComposer({ visible: false });
+      setEventComposerError(null);
       setContextMenu({
         visible: true,
         isoDate,
@@ -474,6 +505,90 @@ export function Timeline({
       closeContextMenu();
     },
     [closeContextMenu, contextMenu, displayZoneId, onAddAnchor]
+  );
+
+  const openEventComposer = useCallback(() => {
+    if (!contextMenu.visible) {
+      return;
+    }
+    const snappedStart =
+      Math.round(contextMenu.minuteOffset / timeStepMinutes) * timeStepMinutes;
+    const normalizedStart = Math.max(
+      0,
+      Math.min(snappedStart, CALENDAR_MINUTES - timeStepMinutes)
+    );
+    const defaultEndMinutes = Math.min(
+      normalizedStart + Math.max(timeStepMinutes, 60),
+      CALENDAR_MINUTES - 1
+    );
+    const endMinutes =
+      defaultEndMinutes <= normalizedStart
+        ? Math.min(normalizedStart + timeStepMinutes, CALENDAR_MINUTES - 1)
+        : defaultEndMinutes;
+    setEventComposer({
+      visible: true,
+      isoDate: contextMenu.isoDate,
+      clientX: contextMenu.clientX,
+      clientY: contextMenu.clientY,
+      start: formatMinutes(normalizedStart),
+      end: formatMinutes(endMinutes),
+      title: "",
+    });
+    setEventComposerError(null);
+    closeContextMenu();
+  }, [closeContextMenu, contextMenu, timeStepMinutes]);
+
+  const closeEventComposer = useCallback(() => {
+    setEventComposer({ visible: false });
+    setEventComposerError(null);
+  }, []);
+
+  const handleEventComposerSubmit = useCallback(
+    (formEvent: ReactFormEvent<HTMLFormElement>) => {
+      formEvent.preventDefault();
+      if (!eventComposer.visible) {
+        return;
+      }
+      try {
+        const date = Temporal.PlainDate.from(eventComposer.isoDate);
+        const startTime = Temporal.PlainTime.from(eventComposer.start);
+        const startZoned = Temporal.ZonedDateTime.from({
+          timeZone: displayZoneId,
+          year: date.year,
+          month: date.month,
+          day: date.day,
+          hour: startTime.hour,
+          minute: startTime.minute,
+          second: startTime.second,
+        });
+        const endTime = Temporal.PlainTime.from(eventComposer.end);
+        let endZoned = Temporal.ZonedDateTime.from({
+          timeZone: displayZoneId,
+          year: date.year,
+          month: date.month,
+          day: date.day,
+          hour: endTime.hour,
+          minute: endTime.minute,
+          second: endTime.second,
+        });
+        if (Temporal.ZonedDateTime.compare(endZoned, startZoned) <= 0) {
+          endZoned = endZoned.add({ days: 1 });
+        }
+        onAddEvent({
+          title: eventComposer.title,
+          start: startZoned,
+          end: endZoned,
+          zone: displayZoneId,
+        });
+        setEventComposer({ visible: false });
+        setEventComposerError(null);
+      } catch (error) {
+        setEventComposerError(
+          error instanceof Error ? error.message : "Unable to add event"
+        );
+      }
+    },
+    [displayZoneId, eventComposer, onAddEvent]
   );
 
   useEffect(() => {
@@ -516,6 +631,7 @@ export function Timeline({
               return null;
             }
             const dayKey = day.wakeDisplayDate.toString();
+            const isoDate = dayKey;
             const events = eventsByDay.get(dayKey) ?? [];
             const anchors = anchorsByDay.get(dayKey) ?? [];
             const isoDate = dayKey;
@@ -839,16 +955,23 @@ export function Timeline({
           <button
             type="button"
             className="block w-full rounded px-2 py-1 text-left hover:bg-muted"
+            onClick={openEventComposer}
+          >
+            Add event
+          </button>
+          <button
+            type="button"
+            className="mt-1 block w-full rounded px-2 py-1 text-left hover:bg-muted"
             onClick={() => handleAddAnchor("wake")}
           >
-            Add wake time
+            Add wake anchor
           </button>
           <button
             type="button"
             className="mt-1 block w-full rounded px-2 py-1 text-left hover:bg-muted"
             onClick={() => handleAddAnchor("sleep")}
           >
-            Add sleep time
+            Add sleep anchor
           </button>
           <button
             type="button"
@@ -857,6 +980,90 @@ export function Timeline({
           >
             Cancel
           </button>
+        </div>
+      ) : null}
+
+      {eventComposer.visible ? (
+        <div
+          className="fixed z-50 w-64 -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-popover p-3 text-xs shadow-lg"
+          style={{
+            left: eventComposer.clientX,
+            top: eventComposer.clientY,
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <form className="space-y-2" onSubmit={handleEventComposerSubmit}>
+            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+              Quick event
+            </div>
+            <label className="flex flex-col gap-1">
+              Title
+              <input
+                type="text"
+                value={eventComposer.title}
+                onChange={(event) =>
+                  setEventComposer((prev) =>
+                    prev.visible
+                      ? { ...prev, title: event.target.value }
+                      : prev
+                  )
+                }
+                placeholder="Name this event"
+                className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              />
+            </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                Starts
+                <input
+                  type="time"
+                  required
+                  value={eventComposer.start}
+                  onChange={(event) =>
+                    setEventComposer((prev) =>
+                      prev.visible
+                        ? { ...prev, start: event.target.value }
+                        : prev
+                    )
+                  }
+                  className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                Ends
+                <input
+                  type="time"
+                  required
+                  value={eventComposer.end}
+                  onChange={(event) =>
+                    setEventComposer((prev) =>
+                      prev.visible
+                        ? { ...prev, end: event.target.value }
+                        : prev
+                    )
+                  }
+                  className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                />
+              </label>
+            </div>
+            {eventComposerError ? (
+              <p className="text-xs text-destructive">{eventComposerError}</p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" size="sm">
+                Create event
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={closeEventComposer}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
         </div>
       ) : null}
     </div>

@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Temporal } from "@js-temporal/polyfill";
+import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import type {
@@ -14,6 +15,19 @@ type CalendarListViewProps = {
   displayZoneId: string;
   onEditEvent: (eventId: string) => void;
   onEditAnchor: (anchorId: string) => void;
+  onAddEvent?: (payload: {
+    title: string;
+    start: Temporal.ZonedDateTime;
+    end?: Temporal.ZonedDateTime;
+    zone: string;
+  }) => void;
+  onAddAnchor?: (payload: {
+    kind: "wake" | "sleep";
+    zoned: Temporal.ZonedDateTime;
+    zone: string;
+    note?: string;
+    autoSelect?: boolean;
+  }) => void;
 };
 
 type CalendarEvent = {
@@ -37,6 +51,8 @@ export function CalendarListView({
   displayZoneId,
   onEditEvent,
   onEditAnchor,
+  onAddEvent,
+  onAddAnchor,
 }: CalendarListViewProps) {
   const editableAnchorIds = useMemo(
     () => new Set(plan.anchors.map((anchor) => anchor.id)),
@@ -101,6 +117,156 @@ export function CalendarListView({
 
     return mapping;
   }, [computed.projectedAnchors, displayZoneId, editableAnchorIds]);
+
+  const [composer, setComposer] = useState<
+    | null
+    | {
+        type: "event" | "wake";
+        dayKey: string;
+      }
+  >(null);
+  const [eventDraft, setEventDraft] = useState({
+    title: "",
+    start: "",
+    end: "",
+  });
+  const [wakeDraft, setWakeDraft] = useState({
+    time: "",
+    note: "",
+  });
+  const [composerError, setComposerError] = useState<string | null>(null);
+
+  const closeComposer = () => {
+    setComposer(null);
+    setComposerError(null);
+  };
+
+  const openEventComposer = (
+    day: ComputedView["days"][number],
+    dayKey: string
+  ) => {
+    const startDisplay = day.brightStartZoned.withTimeZone(displayZoneId);
+    const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
+    setEventDraft({
+      title: "",
+      start: startDisplay
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      end: endDisplay
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+    });
+    setComposer({ type: "event", dayKey });
+    setComposerError(null);
+  };
+
+  const openWakeComposer = (
+    day: ComputedView["days"][number],
+    dayKey: string
+  ) => {
+    setWakeDraft({
+      time: day.wakeTimeLocal,
+      note: "",
+    });
+    setComposer({ type: "wake", dayKey });
+    setComposerError(null);
+  };
+
+  const handleEventSubmit = (
+    event: FormEvent<HTMLFormElement>,
+    day: ComputedView["days"][number]
+  ) => {
+    event.preventDefault();
+    if (!composer || composer.type !== "event") {
+      return;
+    }
+    if (!onAddEvent) {
+      closeComposer();
+      return;
+    }
+    try {
+      const date = day.wakeDisplayDate;
+      const startTime = Temporal.PlainTime.from(eventDraft.start);
+      const startZoned = Temporal.ZonedDateTime.from({
+        timeZone: displayZoneId,
+        year: date.year,
+        month: date.month,
+        day: date.day,
+        hour: startTime.hour,
+        minute: startTime.minute,
+        second: startTime.second,
+      });
+      let endZoned: Temporal.ZonedDateTime | undefined;
+      if (eventDraft.end.trim().length > 0) {
+        const endTime = Temporal.PlainTime.from(eventDraft.end);
+        const baseEnd = Temporal.ZonedDateTime.from({
+          timeZone: displayZoneId,
+          year: date.year,
+          month: date.month,
+          day: date.day,
+          hour: endTime.hour,
+          minute: endTime.minute,
+          second: endTime.second,
+        });
+        endZoned =
+          Temporal.ZonedDateTime.compare(baseEnd, startZoned) <= 0
+            ? baseEnd.add({ days: 1 })
+            : baseEnd;
+      } else {
+        endZoned = startZoned.add({ minutes: 60 });
+      }
+      onAddEvent({
+        title: eventDraft.title,
+        start: startZoned,
+        end: endZoned,
+        zone: displayZoneId,
+      });
+      closeComposer();
+    } catch (error) {
+      setComposerError(
+        error instanceof Error ? error.message : "Unable to add event"
+      );
+    }
+  };
+
+  const handleWakeSubmit = (
+    event: FormEvent<HTMLFormElement>,
+    day: ComputedView["days"][number]
+  ) => {
+    event.preventDefault();
+    if (!composer || composer.type !== "wake") {
+      return;
+    }
+    if (!onAddAnchor) {
+      closeComposer();
+      return;
+    }
+    try {
+      const date = day.wakeDisplayDate;
+      const time = Temporal.PlainTime.from(wakeDraft.time);
+      const zoned = Temporal.ZonedDateTime.from({
+        timeZone: displayZoneId,
+        year: date.year,
+        month: date.month,
+        day: date.day,
+        hour: time.hour,
+        minute: time.minute,
+        second: time.second,
+      });
+      onAddAnchor({
+        kind: "wake",
+        zoned,
+        zone: displayZoneId,
+        note: wakeDraft.note.trim().length > 0 ? wakeDraft.note : undefined,
+        autoSelect: false,
+      });
+      closeComposer();
+    } catch (error) {
+      setComposerError(
+        error instanceof Error ? error.message : "Unable to add wake time"
+      );
+    }
+  };
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -182,6 +348,71 @@ export function CalendarListView({
                   </Button>
                 ))
               )}
+              {composer?.type === "wake" && composer.dayKey === dayKey ? (
+                <form
+                  onSubmit={(event) => handleWakeSubmit(event, day)}
+                  className="space-y-2 rounded-lg border border-dashed bg-card/80 p-3 text-xs text-muted-foreground"
+                >
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1">
+                      Time
+                      <input
+                        type="time"
+                        required
+                        value={wakeDraft.time}
+                        onChange={(event) =>
+                          setWakeDraft((prev) => ({
+                            ...prev,
+                            time: event.target.value,
+                          }))
+                        }
+                        className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Note
+                      <input
+                        type="text"
+                        value={wakeDraft.note}
+                        onChange={(event) =>
+                          setWakeDraft((prev) => ({
+                            ...prev,
+                            note: event.target.value,
+                          }))
+                        }
+                        placeholder="Optional label"
+                        className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      />
+                    </label>
+                  </div>
+                  {composerError ? (
+                    <p className="text-xs text-destructive">{composerError}</p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" size="sm">
+                      Save wake time
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={closeComposer}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : onAddAnchor ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => openWakeComposer(day, dayKey)}
+                >
+                  Add wake anchor
+                </Button>
+              ) : null}
             </section>
 
             <section className="space-y-2">
@@ -242,6 +473,86 @@ export function CalendarListView({
                   );
                 })
               )}
+              {composer?.type === "event" && composer.dayKey === dayKey ? (
+                <form
+                  onSubmit={(event) => handleEventSubmit(event, day)}
+                  className="space-y-2 rounded-lg border border-dashed bg-card/80 p-3 text-xs text-muted-foreground"
+                >
+                  <label className="flex flex-col gap-1">
+                    Title
+                    <input
+                      type="text"
+                      value={eventDraft.title}
+                      onChange={(event) =>
+                        setEventDraft((prev) => ({
+                          ...prev,
+                          title: event.target.value,
+                        }))
+                      }
+                      placeholder="Name this event"
+                      className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    />
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1">
+                      Starts
+                      <input
+                        type="time"
+                        required
+                        value={eventDraft.start}
+                        onChange={(event) =>
+                          setEventDraft((prev) => ({
+                            ...prev,
+                            start: event.target.value,
+                          }))
+                        }
+                        className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      Ends
+                      <input
+                        type="time"
+                        required
+                        value={eventDraft.end}
+                        onChange={(event) =>
+                          setEventDraft((prev) => ({
+                            ...prev,
+                            end: event.target.value,
+                          }))
+                        }
+                        className="rounded-md border px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      />
+                    </label>
+                  </div>
+                  {composerError ? (
+                    <p className="text-xs text-destructive">{composerError}</p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" size="sm">
+                      Save event
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={closeComposer}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : onAddEvent ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => openEventComposer(day, dayKey)}
+                >
+                  Add event
+                </Button>
+              ) : null}
             </section>
           </article>
         );
