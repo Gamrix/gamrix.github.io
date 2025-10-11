@@ -117,6 +117,16 @@ type ShiftStrategy = {
 const MINUTE = 60;
 const NANOS_PER_HOUR = MINUTE * MINUTE * 1_000_000_000;
 
+const toRoundedZonedDateTime = (
+  instantIso: string,
+  sourceZone: ZoneId,
+  targetZone: ZoneId
+) =>
+  Temporal.Instant.from(instantIso)
+    .toZonedDateTimeISO(sourceZone)
+    .withTimeZone(targetZone)
+    .round({ smallestUnit: "minute", roundingMode: "halfExpand" });
+
 const computeZoneDeltaHours = (
   core: CorePlan,
   startInstant: Temporal.Instant
@@ -330,7 +340,7 @@ export function computeBrightWindow(
   const brightEnd = wake.add({ hours: 5 });
 
   const zoneId = wake.timeZoneId;
-  const dayStart = Temporal.ZonedDateTime.from({
+  const dayEnd = Temporal.ZonedDateTime.from({
     timeZone: zoneId,
     year: wake.year,
     month: wake.month,
@@ -341,16 +351,7 @@ export function computeBrightWindow(
     millisecond: 0,
     microsecond: 0,
     nanosecond: 0,
-  });
-  const dayEnd = dayStart.add({ days: 1 });
-
-  let effectiveStart = wake;
-  if (
-    Temporal.Instant.compare(effectiveStart.toInstant(), dayStart.toInstant()) < 0
-  ) {
-    effectiveStart = dayStart;
-  }
-
+  }).add({ days: 1 });
   let clampedEnd = brightEnd;
   if (
     Temporal.Instant.compare(clampedEnd.toInstant(), dayEnd.toInstant()) > 0
@@ -358,50 +359,30 @@ export function computeBrightWindow(
     clampedEnd = dayEnd;
   }
 
-  if (
-    Temporal.Instant.compare(
-      clampedEnd.toInstant(),
-      effectiveStart.toInstant()
-    ) <= 0
-  ) {
-    return effectiveStart;
-  }
-
   return clampedEnd;
 }
 
-function projectEvent (
+const projectEvent = (
   event: EventItem,
   zone: ZoneId
 ): EventItem & {
-      startZoned: Temporal.ZonedDateTime;
-      endZoned?: Temporal.ZonedDateTime;
-    }
-   {
-    const startInstant = Temporal.Instant.from(event.start);
-    const startZoned = startInstant
-      .toZonedDateTimeISO(zone)
-      .round({ smallestUnit: "minute", roundingMode: "halfExpand" });
+  startZoned: Temporal.ZonedDateTime;
+  endZoned?: Temporal.ZonedDateTime;
+} => {
+  const startZoned = toRoundedZonedDateTime(event.start, event.zone, zone);
+  const endZoned = event.end
+    ? toRoundedZonedDateTime(event.end, event.zone, zone)
+    : undefined;
 
-    let endZoned: Temporal.ZonedDateTime | undefined;
-    if (event.end) {
-      endZoned = Temporal.Instant.from(event.end)
-        .toZonedDateTimeISO(zone)
-        .round({ smallestUnit: "minute", roundingMode: "halfExpand" });
-    }
-
-    return {
-      ...event,
-      startZoned,
-      ...(endZoned ? { endZoned } : {}),
-    };
+  return {
+    ...event,
+    startZoned,
+    ...(endZoned ? { endZoned } : {}),
+  };
 };
 
 const projectAnchor = (anchor: AnchorPoint, zone: ZoneId) => {
-  const zdt = Temporal.Instant.from(anchor.instant)
-    .toZonedDateTimeISO(anchor.zone)
-    .withTimeZone(zone)
-    .round({ smallestUnit: "minute", roundingMode: "halfExpand" });
+  const zdt = toRoundedZonedDateTime(anchor.instant, anchor.zone, zone);
   return {
     ...anchor,
     zonedDateTime: zdt,
@@ -568,7 +549,9 @@ export function computePlan(core: CorePlan): ComputedView {
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
 
-  const projectedEvents = core.events.map((event) => projectEvent(event, displayZone));
+  const projectedEvents = core.events.map((event) =>
+    projectEvent(event, displayZone)
+  );
 
   const projectedAnchors = anchors.map((anchor) =>
     projectAnchor(anchor, displayZone)
