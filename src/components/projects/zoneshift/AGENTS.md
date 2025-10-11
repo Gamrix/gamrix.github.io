@@ -1,0 +1,48 @@
+# Zoneshift Data Model
+
+## Background
+
+- Zoneshift is a tool to plan out how to shift circadian rhythms when changing time zones
+- The UI has two different time zones that the user can freely switch between.
+- Local Calendar Day - Defined as 00:00-23:59 for the time zone currently shown
+
+## Dates Math and Model
+
+- The Core Data Model is the base format that is updated, and persisted
+  - It stores all times in UTC, and keeps local time zones in separate objects.
+  - All UI edits of times should be directly applied to the Core Data Model
+- All Top level dates in card-based views (List view, table view), should be based on the date at the time of  wake up at the time zone the UI is currently set at
+  - Eg. Sleep time: 20:00 (t-1) - 04:00 instead of 20:00 - 04:00 (t+1)
+  - All times that have a date different than the top level Date should be subtly displayed as such.
+- Note this means that there can be 0, 1, or 2 wake times per day
+  - All UI should expect the 0 and the 2 wake time cases to happen and display it calmly and correctly when it does.
+  - We should still keep the UI clean and simple for the most common 1 wake time case.
+
+## Events
+
+- Every item that has a start time and a possible end time should be modeled as an event
+- Automatically Generated Event Types
+  - Sleep time - X hours before wake time, as determined by settings
+  - Bright Light Time - Wake time to 5 hours after
+- Manually Generated Events
+  - General Events
+  - Anchor Wake Times
+- Manually Generated Events must have a default time zone associated with them.
+- All events should use common calculation methods after their times in UTC are calculated.
+
+## Calculation Pipeline
+
+1. We start with the Core Data Model
+2. Automatic Event Generation
+3. Conversion to display time zone
+4. Organizing and splitting of events by calendar day (Day Bucketing) based on display time zone
+5. Rendering in the UI
+
+### Notes on Calcualtion Pipeline
+
+- All UI is done in Display Time Zone, and edits to data converted back from display time zone to UTC to be stored in the Core Data Model. They do not change local time zone when edited.
+- All parts except for the rendering in UI should be common code
+
+## Misc
+
+- DST: As all times are calculated in UTC and only converted to local time for display, there is no need to specially handle DST, it will be automatically handled in time conversion
