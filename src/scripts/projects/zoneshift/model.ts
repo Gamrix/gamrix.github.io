@@ -330,7 +330,10 @@ export function interpolateDailyWakeTimes(
   result.push(current);
 
   for (let i = 1; i < intervals; i += 1) {
-    current = current.add({ days: 1, minutes: stepMinutes });
+    current = current.add({ days: 1 });
+    if (stepMinutes !== 0) {
+      current = current.add({ minutes: stepMinutes });
+    }
     result.push(current);
   }
 

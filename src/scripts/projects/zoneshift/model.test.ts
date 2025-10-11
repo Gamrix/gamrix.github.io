@@ -207,4 +207,85 @@ describe("computePlan", () => {
     );
     expect(totalShift).toBeCloseTo(9, 1);
   });
+
+  it("emits Temporal instances for all computed timestamps", () => {
+    const plan = basePlan();
+    const computed = computePlan(plan);
+    const firstDay = computed.days[0];
+    expect(firstDay.wakeInstant).toBeInstanceOf(Temporal.Instant);
+    expect(firstDay.wakeDisplayDate).toBeInstanceOf(Temporal.PlainDate);
+    expect(firstDay.sleepStartZoned).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(firstDay.sleepEndZoned).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(firstDay.sleepStartUtc).toBeInstanceOf(Temporal.Instant);
+    expect(firstDay.sleepEndUtc).toBeInstanceOf(Temporal.Instant);
+    expect(firstDay.brightStartZoned).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(firstDay.brightEndZoned).toBeInstanceOf(Temporal.ZonedDateTime);
+    expect(firstDay.brightStartUtc).toBeInstanceOf(Temporal.Instant);
+    expect(firstDay.brightEndUtc).toBeInstanceOf(Temporal.Instant);
+    firstDay.anchors.forEach((anchor) => {
+      expect(anchor.instant).toBeInstanceOf(Temporal.Instant);
+    });
+    computed.projectedEvents.forEach((event) => {
+      expect(event.startZoned).toBeInstanceOf(Temporal.ZonedDateTime);
+      if (event.endZoned) {
+        expect(event.endZoned).toBeInstanceOf(Temporal.ZonedDateTime);
+      }
+    });
+    computed.projectedAnchors.forEach((anchor) => {
+      expect(anchor.zonedDateTime).toBeInstanceOf(Temporal.ZonedDateTime);
+    });
+  });
+
+  it("projects events into the active display zone", () => {
+    const plan = {
+      ...basePlan(),
+      events: [
+        {
+          id: "late-flight",
+          title: "Red-eye",
+          start: "2024-10-19T09:00:00Z",
+          end: "2024-10-19T15:30:00Z",
+          zone: "America/Los_Angeles",
+        },
+      ],
+      prefs: { displayZone: "target" },
+    } satisfies CorePlan;
+    const computed = computePlan(plan);
+    const projected = computed.projectedEvents.find(
+      (event) => event.id === "late-flight"
+    );
+    expect(projected).toBeDefined();
+    expect(projected?.startZoned.timeZoneId).toBe(plan.params.targetZone);
+    expect(
+      projected?.startZoned.toInstant().toString()
+    ).toBe("2024-10-19T09:00:00Z");
+    expect(projected?.endZoned?.timeZoneId).toBe(plan.params.targetZone);
+  });
+
+  it("clamps bright window to the calendar boundary when a wake is near midnight", () => {
+    const plan = {
+      ...basePlan(),
+      params: {
+        ...basePlan().params,
+        startSleepUtc: "2024-10-17T13:30:00Z", // 21:30 local in target zone
+        sleepHours: 2,
+      },
+      events: [],
+    } satisfies CorePlan;
+    const computed = computePlan(plan);
+    const firstDay = computed.days[0];
+    expect(firstDay.wakeTimeLocal).toBe("23:30");
+    expect(firstDay.brightStartLocal).toBe("23:30");
+    expect(firstDay.brightEndLocal).toBe("00:00");
+    const brightDurationMinutes = firstDay.brightEndUtc
+      .since(firstDay.brightStartUtc)
+      .total({ unit: "minutes" });
+    expect(brightDurationMinutes).toBe(30);
+    expect(
+      Temporal.PlainDate.compare(
+        firstDay.brightEndZoned.toPlainDate(),
+        firstDay.wakeDisplayDate.add({ days: 1 })
+      )
+    ).toBe(0);
+  });
 });
