@@ -1,3 +1,77 @@
 {
-  "extends": ["@area44/biome-config"]
+  "$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!*.min.*",
+      "!*.map",
+      "!**/public",
+      "!**/build",
+      "!**/dist",
+      "!**/out",
+      "!**/.astro",
+      "!**/.github",
+      "!**/.netlify",
+      "!**/.next"
+    ]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "master"
+  },
+  "linter": {
+    "rules": {
+      "style": {
+        "noNonNullAssertion": "off",
+        "useImportType": "off",
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off"
+      }
+    }
+  },
+  "formatter": {
+    "formatWithErrors": true,
+    "indentStyle": "space"
+  },
+    "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.svelte",
+        "**/*.astro",
+        "**/*.vue"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            // "useConst": "off",
+            "useImportType": "off"
+          },
+          "correctness": {
+            // "noUnusedVariables": "off",
+            // "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
 }
