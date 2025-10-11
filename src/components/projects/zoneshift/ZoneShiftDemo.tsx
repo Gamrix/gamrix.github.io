@@ -340,18 +340,27 @@ function ZoneShiftDemoComponent() {
                   Display zone
                 </span>
                 <div className="flex gap-2">
-                  {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
-                    <Button
-                      key={option}
-                      type="button"
-                      variant={option === displayZone ? "default" : "outline"}
-                      className="text-xs"
-                      onClick={() => handleDisplayZoneChange(option)}
-                      aria-pressed={option === displayZone}
-                    >
-                      {VIEW_LABEL[option]}
-                    </Button>
-                  ))}
+                  {(["home", "target"] as const).map((option) => {
+                    const zoneId =
+                      option === "home"
+                        ? planState.params.homeZone
+                        : planState.params.targetZone;
+                    return (
+                      <Button
+                        key={option}
+                        type="button"
+                        variant={option === displayZone ? "default" : "outline"}
+                        className="text-xs"
+                        onClick={() => handleDisplayZoneChange(option)}
+                        aria-pressed={option === displayZone}
+                      >
+                        {VIEW_LABEL[option]}
+                        <span className="ml-2 text-[10px] text-muted-foreground">
+                          {zoneId}
+                        </span>
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
               <span className="text-xs text-muted-foreground">{displayZoneId}</span>

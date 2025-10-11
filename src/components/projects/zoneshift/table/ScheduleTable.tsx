@@ -4,8 +4,6 @@ import { Temporal } from "@js-temporal/polyfill";
 import type { ComputedView } from "@/scripts/projects/zoneshift/model";
 import { formatRangeLabel, rangeDaySuffix } from "../utils/timeSegments";
 
-const WEEKDAY = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 const formatChange = (value: number) => {
   if (Math.abs(value) < 0.05) {
     return "0";
@@ -17,23 +15,18 @@ const formatDayLabel = (isoDate: string) => {
   const date = Temporal.PlainDate.from(isoDate);
   const month = String(date.month).padStart(2, "0");
   const day = String(date.day).padStart(2, "0");
-  const weekday = WEEKDAY[(date.dayOfWeek + 6) % 7];
+  const weekday = date.toLocaleString("en-US", { weekday: "short" });
   return {
     dateLabel: `${month}/${day}`,
     weekday,
   };
 };
 
-interface ScheduleTableProps {
+type ScheduleTableProps = {
   computed: ComputedView;
   displayZoneId: string;
   onEditAnchor?: (anchorId: string) => void;
-}
-
-const anchorKindLabel = {
-  wake: "Wake time",
-  sleep: "Sleep time",
-} as const;
+};
 
 export function ScheduleTable({
   computed,
@@ -141,7 +134,8 @@ export function ScheduleTable({
                               smallestUnit: "minute",
                               fractionalSecondDigits: 0,
                             });
-                          const label = `${anchorKindLabel[anchor.kind]} @ ${anchorTime}`;
+                          const prefix = anchor.kind === "wake" ? "Wake time" : "Sleep time";
+                          const label = `${prefix} @ ${anchorTime}`;
                           const badgeClass =
                             "inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 

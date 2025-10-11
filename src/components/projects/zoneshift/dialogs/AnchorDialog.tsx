@@ -12,14 +12,14 @@ import {
 } from "./DialogPrimitive";
 import type { AnchorPoint, CorePlan } from "@/scripts/projects/zoneshift/model";
 
-interface AnchorDialogProps {
+type AnchorDialogProps = {
   plan: CorePlan;
   anchor: AnchorPoint | null;
   open: boolean;
   onClose: () => void;
   onUpdate: (anchorId: string, payload: Partial<AnchorPoint>) => void;
   onRemove: (anchorId: string) => void;
-}
+};
 
 const toLocalValue = (instantIso: string, zone: string) => {
   const zdt = Temporal.Instant.from(instantIso).toZonedDateTimeISO(zone);

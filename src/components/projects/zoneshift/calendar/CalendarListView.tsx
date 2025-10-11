@@ -8,28 +8,28 @@ import type {
 } from "@/scripts/projects/zoneshift/model";
 import { formatRangeLabel } from "../utils/timeSegments";
 
-interface CalendarListViewProps {
+type CalendarListViewProps = {
   plan: CorePlan;
   computed: ComputedView;
   displayZoneId: string;
   onEditEvent: (eventId: string) => void;
   onEditAnchor: (anchorId: string) => void;
-}
+};
 
-interface CalendarEvent {
+type CalendarEvent = {
   id: string;
   title: string;
   start: Temporal.ZonedDateTime;
   end?: Temporal.ZonedDateTime;
-}
+};
 
-interface CalendarAnchor {
+type CalendarAnchor = {
   id: string;
   kind: "wake" | "sleep";
   note?: string;
   zoned: Temporal.ZonedDateTime;
   editable: boolean;
-}
+};
 
 export function CalendarListView({
   plan,

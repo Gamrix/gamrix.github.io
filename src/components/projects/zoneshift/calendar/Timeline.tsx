@@ -13,7 +13,7 @@ const CALENDAR_MINUTES = 24 * 60;
 const CALENDAR_HEIGHT = CALENDAR_MINUTES * PIXELS_PER_MINUTE;
 const VIRTUAL_PADDING_MINUTES = 120;
 
-interface TimelineProps {
+type TimelineProps = {
   plan: CorePlan;
   computed: ComputedView;
   displayZoneId: string;
@@ -37,46 +37,46 @@ interface TimelineProps {
     zoned: Temporal.ZonedDateTime;
     zone: string;
   }) => void;
-}
+};
 
-interface TimelineAnchor {
+type TimelineAnchor = {
   id: string;
   kind: "wake" | "sleep";
   note?: string;
   zone: string;
   zoned: Temporal.ZonedDateTime;
   editable: boolean;
-}
+};
 
-interface TimelineEvent {
+type TimelineEvent = {
   id: string;
   title: string;
   start: Temporal.ZonedDateTime;
   end?: Temporal.ZonedDateTime;
   zone: string;
   conflict: boolean;
-}
+};
 
-interface DragStateBase {
+type DragStateBase = {
   pointerId: number;
   startClientY: number;
   lastDelta: number;
-}
+};
 
-interface EventDragState extends DragStateBase {
+type EventDragState = DragStateBase & {
   type: "event" | "event-resize-start" | "event-resize-end";
   id: string;
   zone: string;
   originalStart: Temporal.ZonedDateTime;
   originalEnd?: Temporal.ZonedDateTime;
-}
+};
 
-interface AnchorDragState extends DragStateBase {
+type AnchorDragState = DragStateBase & {
   type: "anchor";
   id: string;
   zone: string;
   originalInstant: Temporal.ZonedDateTime;
-}
+};
 
 type DragState = EventDragState | AnchorDragState | null;
 

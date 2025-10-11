@@ -6,12 +6,12 @@ import {
   type CorePlan,
 } from "@/scripts/projects/zoneshift/model";
 
-interface ImportExportProps {
+type ImportExportProps = {
   onImport: (plan: CorePlan) => void;
   onReset: () => void;
   exportPlan: () => string;
   className?: string;
-}
+};
 
 const encodePlanForHash = (planJson: string) => {
   if (typeof window === "undefined") {

@@ -12,14 +12,14 @@ import {
 } from "./DialogPrimitive";
 import type { CorePlan, EventItem } from "@/scripts/projects/zoneshift/model";
 
-interface EventDialogProps {
+type EventDialogProps = {
   plan: CorePlan;
   event: EventItem | null;
   open: boolean;
   onClose: () => void;
   onUpdate: (eventId: string, payload: Partial<EventItem>) => void;
   onRemove: (eventId: string) => void;
-}
+};
 
 const toLocalValue = (instantIso: string, zone: string) => {
   const zdt = Temporal.Instant.from(instantIso).toZonedDateTimeISO(zone);

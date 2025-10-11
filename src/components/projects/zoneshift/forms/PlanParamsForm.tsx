@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CorePlan } from "@/scripts/projects/zoneshift/model";
 
-interface PlanParamsFormProps {
+type PlanParamsFormProps = {
   plan: CorePlan;
   onUpdateParams: (partial: Partial<CorePlan["params"]>) => void;
   onSetTimeStep: (minutes: number) => void;
@@ -13,7 +13,7 @@ interface PlanParamsFormProps {
   onCancel?: () => void;
   className?: string;
   submitLabel?: string;
-}
+};
 
 const formatLocalDateTime = (instantIso: string, zone: string) =>
   Temporal.Instant.from(instantIso)

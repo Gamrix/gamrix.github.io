@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 
-interface TzToggleProps {
+type TzToggleProps = {
   displayZone: "home" | "target";
   homeZone: string;
   targetZone: string;
   onChange: (mode: "home" | "target") => void;
-}
+};
 
 export function TzToggle({
   displayZone,

@@ -6,7 +6,7 @@ import type {
 } from "@/scripts/projects/zoneshift/model";
 import { Timeline } from "./Timeline";
 
-interface CalendarViewProps {
+type CalendarViewProps = {
   plan: CorePlan;
   computed: ComputedView;
   displayZoneId: string;
@@ -15,7 +15,7 @@ interface CalendarViewProps {
   onEventChange?: CalendarEventChangeHandler;
   onAnchorChange?: CalendarAnchorChangeHandler;
   onAddAnchor?: CalendarAddAnchorHandler;
-}
+};
 
 type CalendarEventChangeHandler = (
   eventId: string,
@@ -37,32 +37,6 @@ type CalendarAddAnchorHandler = (payload: {
   zone: string;
 }) => void;
 
-function noopEventChange(
-  _eventId: string,
-  _payload: {
-    start: Temporal.ZonedDateTime;
-    end?: Temporal.ZonedDateTime;
-    zone: string;
-  }
-): void {
-  return;
-}
-
-function noopAnchorChange(
-  _anchorId: string,
-  _payload: { instant: Temporal.ZonedDateTime; zone: string }
-): void {
-  return;
-}
-
-function noopAddAnchor(_payload: {
-  kind: "wake" | "sleep";
-  zoned: Temporal.ZonedDateTime;
-  zone: string;
-}): void {
-  return;
-}
-
 export function CalendarView({
   plan,
   computed,
@@ -83,9 +57,9 @@ export function CalendarView({
       timeStepMinutes={timeStepMinutes}
       onEditEvent={onEditEvent}
       onEditAnchor={onEditAnchor}
-      onEventChange={onEventChange ?? noopEventChange}
-      onAnchorChange={onAnchorChange ?? noopAnchorChange}
-      onAddAnchor={onAddAnchor ?? noopAddAnchor}
+      onEventChange={onEventChange ?? ((..._args: Parameters<CalendarEventChangeHandler>) => undefined)}
+      onAnchorChange={onAnchorChange ?? ((..._args: Parameters<CalendarAnchorChangeHandler>) => undefined)}
+      onAddAnchor={onAddAnchor ?? ((..._args: Parameters<CalendarAddAnchorHandler>) => undefined)}
     />
   );
 }

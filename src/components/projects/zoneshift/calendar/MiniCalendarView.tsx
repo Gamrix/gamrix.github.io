@@ -9,34 +9,34 @@ import {
   minutesSinceStartOfDay,
 } from "../utils/timeSegments";
 
-interface MiniCalendarViewProps {
+type MiniCalendarViewProps = {
   computed: ComputedView;
   displayZoneId: string;
   onEditEvent?: (eventId: string) => void;
   onOpenPlanSettings?: () => void;
-}
+};
 
 type SegmentType = "sleep" | "bright" | "other";
 
-interface TimeSegment {
+type TimeSegment = {
   start: number;
   end: number;
   type: SegmentType;
-}
+};
 
-interface MiniEvent {
+type MiniEvent = {
   id: string;
   title: string;
   start: Temporal.ZonedDateTime;
   end?: Temporal.ZonedDateTime;
   summary: string;
-}
+};
 
-interface MiniAnchor {
+type MiniAnchor = {
   id: string;
   minuteOffset: number;
   label: string;
-}
+};
 
 const TIMELINE_HEIGHT = "min(26rem, 70vh)";
 const HEADER_HEIGHT = "2.5rem";
@@ -489,6 +489,7 @@ export function MiniCalendarView({
                                 const topPercent =
                                   (minuteOffset / MINUTES_IN_DAY) * 100;
                                 const isActive = expandedEventId === event.id;
+                                const toggleLabelId = `${event.id}-toggle-label`;
 
                                 return (
                                   <Fragment key={event.id}>
@@ -507,8 +508,13 @@ export function MiniCalendarView({
                                       style={{
                                         top: `calc(${topPercent}% - 8px)`,
                                       }}
-                                      aria-label={`Toggle ${event.title}`}
-                                    />
+                                      aria-label="Toggle event details"
+                                      aria-describedby={toggleLabelId}
+                                    >
+                                      <span id={toggleLabelId} className="sr-only">
+                                        {event.title}
+                                      </span>
+                                    </button>
                                     {isActive ? (
                                       <div
                                         className="absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-card/95 p-3 text-xs shadow-lg"

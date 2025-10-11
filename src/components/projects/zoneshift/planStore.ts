@@ -18,12 +18,12 @@ import {
 
 export type ViewMode = "calendar" | "timeline" | "mini" | "table";
 
-interface PlanStoreState {
+type PlanStoreState = {
   plan: CorePlan;
   viewMode: ViewMode;
   activeEventId: string | null;
   activeAnchorId: string | null;
-}
+};
 
 let state: PlanStoreState = {
   plan: loadPlanFromStorage(sampleCorePlan),

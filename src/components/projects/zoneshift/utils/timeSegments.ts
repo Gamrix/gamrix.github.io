@@ -70,11 +70,11 @@ export const minutesSinceStartOfDay = (value: Temporal.ZonedDateTime) => {
   return value.since(startOfDay).total({ unit: "minutes" });
 };
 
-export interface DaySegment {
+export type DaySegment = {
   date: string;
   start: Temporal.ZonedDateTime;
   end: Temporal.ZonedDateTime;
-}
+};
 
 export const splitRangeByDay = (
   start: Temporal.ZonedDateTime,

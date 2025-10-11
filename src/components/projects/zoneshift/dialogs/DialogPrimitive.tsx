@@ -1,18 +1,18 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-interface DialogContextValue {
+type DialogContextValue = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
+};
 
 const DialogContext = createContext<DialogContextValue | null>(null);
 
-interface DialogProps {
+type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
-}
+};
 
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (

@@ -58,7 +58,7 @@ export const CorePlanSchema = z.object({
 
 export type CorePlan = z.infer<typeof CorePlanSchema>;
 
-export interface DayComputed {
+export type DayComputed = {
   dateTargetZone: string;
   changeThisDayHours: number;
   sleepStartLocal: string;
@@ -71,9 +71,9 @@ export interface DayComputed {
   brightEndZoned: string;
   wakeTimeLocal: string;
   anchors: DayAnchorInfo[];
-}
+};
 
-export interface ComputedView {
+export type ComputedView = {
   days: DayComputed[];
   projectedEvents: Array<EventItem & { startZoned: string; endZoned?: string }>;
   projectedAnchors: Array<AnchorPoint & { zonedDateTime: string }>;
@@ -82,31 +82,31 @@ export interface ComputedView {
     direction: ShiftDirection;
     perDayShifts: number[];
   };
-}
+};
 
-export interface InterpPolicy {
+export type InterpPolicy = {
   maxLaterPerDay: number;
   maxEarlierPerDay: number;
-}
+};
 
-export interface DayAnchorInfo {
+export type DayAnchorInfo = {
   id: string;
   kind: AnchorPoint["kind"];
   note?: string;
   instant: string;
   editable: boolean;
-}
+};
 
-interface AnchorResolved {
+type AnchorResolved = {
   anchor: AnchorPoint;
   wake: Temporal.ZonedDateTime;
-}
+};
 
-interface ShiftStrategy {
+type ShiftStrategy = {
   direction: ShiftDirection;
   shiftAmountHours: number;
   daysNeeded: number;
-}
+};
 
 const MINUTE = 60;
 const NANOS_PER_HOUR = MINUTE * MINUTE * 1_000_000_000;
