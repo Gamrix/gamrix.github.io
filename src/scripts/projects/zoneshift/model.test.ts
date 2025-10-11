@@ -45,6 +45,51 @@ describe("CorePlanSchema", () => {
       })
     ).toThrow();
   });
+
+  it("supports display days without wakes when converting across time zones", () => {
+    const base = basePlan();
+    const plan: CorePlan = {
+      ...base,
+      params: {
+        ...base.params,
+        homeZone: "America/Los_Angeles",
+        targetZone: "Pacific/Kiritimati",
+        startSleepUtc: "2024-10-17T08:30:00Z",
+        sleepHours: 8,
+        maxShiftLaterPerDayHours: 1,
+        maxShiftEarlierPerDayHours: 1,
+      },
+      prefs: { displayZone: "home" },
+      anchors: [
+        {
+          id: "festival-call",
+          kind: "wake",
+          instant: "2024-10-24T09:00:00Z",
+          zone: "Pacific/Kiritimati",
+        },
+      ],
+    } satisfies CorePlan;
+
+    const computed = computePlan(plan);
+    const displayDates = computed.days.map((day) => day.wakeDisplayDate.toString());
+    expect(displayDates.length).toBeGreaterThan(1);
+
+    const firstDate = Temporal.PlainDate.from(displayDates[0]);
+    const lastDate = Temporal.PlainDate.from(
+      displayDates[displayDates.length - 1]
+    );
+    const dateSet = new Set(displayDates);
+    const missing: string[] = [];
+    let cursor = firstDate;
+    while (Temporal.PlainDate.compare(cursor, lastDate) <= 0) {
+      if (!dateSet.has(cursor.toString())) {
+        missing.push(cursor.toString());
+      }
+      cursor = cursor.add({ days: 1 });
+    }
+
+    expect(missing.length).toBeGreaterThan(0);
+  });
 });
 
 describe("makeDefaultShiftAnchor", () => {
