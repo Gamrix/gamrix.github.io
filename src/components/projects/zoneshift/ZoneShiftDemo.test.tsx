@@ -8,15 +8,14 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    expect(screen.getByText(/Asia\/Taipei/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute(
-      "aria-pressed",
-      "true"
-    );
+    const targetZoneLabels = await screen.findAllByText("Asia/Taipei");
+    expect(targetZoneLabels.length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
     await user.click(screen.getByRole("button", { name: "Home Zone" }));
 
-    expect(screen.getByText("America/Los_Angeles")).toBeInTheDocument();
+    const homeZoneLabels = await screen.findAllByText("America/Los_Angeles");
+    expect(homeZoneLabels.length).toBeGreaterThan(0);
   });
 
   it("allows updating wake times via the editor", async () => {
@@ -26,10 +25,10 @@ describe("ZoneShiftDemo", () => {
     const tableButtons = screen.getAllByRole("button", { name: "Table View" });
     await user.click(tableButtons[0]);
 
-    const editButtons = await screen.findAllByRole("button", {
-      name: /Wake time/i,
-    });
-    await user.click(editButtons[0]);
+    const editButtons = await screen.findAllByRole("button", { name: /Wake time/i });
+    const firstEnabledButton = editButtons.find((button) => !button.hasAttribute("disabled"));
+    expect(firstEnabledButton).toBeDefined();
+    await user.click(firstEnabledButton!);
 
     const timeInput = await screen.findByLabelText(/Local time/i);
     await user.clear(timeInput);
@@ -56,6 +55,7 @@ describe("ZoneShiftDemo", () => {
     const miniButtons = screen.getAllByRole("button", { name: "Mini View" });
     await user.click(miniButtons[0]);
 
-    expect(await screen.findByText(/Mini calendar/i)).toBeInTheDocument();
+    const miniHeadings = await screen.findAllByText(/Mini calendar/i);
+    expect(miniHeadings.length).toBeGreaterThan(0);
   });
 });

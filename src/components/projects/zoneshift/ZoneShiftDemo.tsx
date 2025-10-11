@@ -16,12 +16,12 @@ import {
   persistPlanToStorage,
 } from "./planPersistence";
 
-const formatZoneName = (zoneId: string) => {
-  const parts = zoneId.split("/");
-  return (parts[parts.length - 1] ?? zoneId).replace(/_/g, " ");
-};
-
 type DemoViewMode = "calendar" | "timeline" | "mini" | "table";
+
+const VIEW_LABEL: Record<"home" | "target", string> = {
+  home: "Home Zone",
+  target: "Target Zone",
+};
 
 const DEMO_VIEW_LABEL: Record<DemoViewMode, string> = {
   calendar: "List View",
@@ -93,13 +93,6 @@ function ZoneShiftDemoComponent() {
     displayZone === "home"
       ? planState.params.homeZone
       : planState.params.targetZone;
-  const zoneLabels = useMemo(
-    () => ({
-      home: formatZoneName(planState.params.homeZone),
-      target: formatZoneName(planState.params.targetZone),
-    }),
-    [planState.params.homeZone, planState.params.targetZone]
-  );
 
   const activeAnchor = useMemo(
     () =>
@@ -341,24 +334,27 @@ function ZoneShiftDemoComponent() {
       <header className="rounded-xl border bg-card/60 p-8 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Display zone
-              </span>
-              <div className="flex gap-2">
-                {(["home", "target"] as const).map((option) => (
-                  <Button
-                    key={option}
-                    type="button"
-                    variant={option === displayZone ? "default" : "outline"}
-                    className="text-xs"
-                    onClick={() => handleDisplayZoneChange(option)}
-                    aria-pressed={option === displayZone}
-                  >
-                    {zoneLabels[option]}
-                  </Button>
-                ))}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Display zone
+                </span>
+                <div className="flex gap-2">
+                  {(Object.keys(VIEW_LABEL) as Array<"home" | "target">).map((option) => (
+                    <Button
+                      key={option}
+                      type="button"
+                      variant={option === displayZone ? "default" : "outline"}
+                      className="text-xs"
+                      onClick={() => handleDisplayZoneChange(option)}
+                      aria-pressed={option === displayZone}
+                    >
+                      {VIEW_LABEL[option]}
+                    </Button>
+                  ))}
+                </div>
               </div>
+              <span className="text-xs text-muted-foreground">{displayZoneId}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -33,7 +33,8 @@ const overnightPlan: CorePlan = {
 
 describe("ScheduleTable", () => {
   it("renders one row per computed day", () => {
-    const computed = computePlan(sampleCorePlan);
+    const planCopy = structuredClone(sampleCorePlan);
+    const computed = computePlan(planCopy);
     render(
       <ScheduleTable
         computed={computed}
@@ -72,7 +73,8 @@ describe("ScheduleTable", () => {
   });
 
   it("calls the edit handler when an editable wake time is present", async () => {
-    const computed = computePlan(sampleCorePlan);
+    const planCopy = structuredClone(sampleCorePlan);
+    const computed = computePlan(planCopy);
     const handleEdit = vi.fn();
     const user = userEvent.setup();
 
@@ -84,9 +86,10 @@ describe("ScheduleTable", () => {
       />
     );
 
-    const anchorButtons = await screen.findAllByRole("button", {
-      name: /Wake time/i,
+    const table = await screen.findByRole("table", {
+      name: /Derived daily sleep, wake, and bright-light guidance/i,
     });
+    const anchorButtons = within(table).getAllByRole("button", { name: /Wake time/i });
     await user.click(anchorButtons[0]);
 
     await waitFor(() => expect(handleEdit).toHaveBeenCalledTimes(1));

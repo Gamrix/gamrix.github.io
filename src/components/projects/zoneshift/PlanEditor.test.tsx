@@ -82,7 +82,8 @@ describe("PlanEditor", () => {
     await user.click(miniButtons[0]);
 
     expect(miniButtons[0]).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByText(/Mini calendar/i)).toBeInTheDocument();
+    const miniHeadings = await screen.findAllByText(/Mini calendar/i);
+    expect(miniHeadings.length).toBeGreaterThan(0);
   });
 
   it("opens the event dialog when an event is selected", async () => {
