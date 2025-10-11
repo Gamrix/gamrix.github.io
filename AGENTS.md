@@ -45,6 +45,10 @@
 
 - Leave the code better than when you found it. If you see a small improvement
   based on the AGENTS.md rules that can be made, make it.
+- If you see unexpected changes to the codebase or merge conflicts, it is likely
+  due to another user or agent. Assume the change is intentional, and do not revert it.
+  - Do however fix any issues it causes in your current task.
+
 
 ### Next Task Suggestion
 
