@@ -152,7 +152,7 @@ const normalizeShift = (
   const earlierShift = baseShift <= 0 ? baseShift : baseShift - 24;
 
   const computeDaysNeeded = (shift: number, maxPerDay: number) =>
-    shift === 0 ? 0 : Math.max(1, Math.ceil(Math.abs(shift) / maxPerDay));
+     Math.ceil(Math.abs(shift) / maxPerDay);
 
   const laterDays = computeDaysNeeded(laterShift, maxShiftLaterPerDayHours);
   const earlierDays = computeDaysNeeded(
@@ -323,10 +323,7 @@ export function interpolateDailyWakeTimes(
   result.push(current);
 
   for (let i = 1; i < intervals; i += 1) {
-    current = current.add({ days: 1 });
-    if (stepMinutes !== 0) {
-      current = current.add({ minutes: stepMinutes });
-    }
+    current = current.add({ days: 1 ,  minutes: stepMinutes});
     result.push(current);
   }
 
@@ -369,14 +366,15 @@ const projectEvent = (
   startZoned: Temporal.ZonedDateTime;
   endZoned?: Temporal.ZonedDateTime;
 } => {
+  const startZoned = toRoundedZonedDateTime(event.start, event.zone, zone);
   const endZoned = event.end
     ? toRoundedZonedDateTime(event.end, event.zone, zone)
     : undefined;
 
   return {
     ...event,
-    startZoned: toRoundedZonedDateTime(event.start, event.zone, zone);
-    endZoned
+    startZoned,
+    endZoned,
   };
 };
 
@@ -416,10 +414,10 @@ export function makeDefaultShiftAnchor(core: CorePlan): AnchorPoint {
 }
 
 export function projectInstant(iso: string, zone: ZoneId) {
-  const instant = Temporal.Instant.from(iso);
-  return instant
-    .toZonedDateTimeISO(zone)
-    .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+  return toRoundedZonedDateTime(iso, zone, zone).toString({
+    smallestUnit: "minute",
+    fractionalSecondDigits: 0,
+  });
 }
 
 export function computePlan(core: CorePlan): ComputedView {
@@ -451,9 +449,8 @@ export function computePlan(core: CorePlan): ComputedView {
   const resolvedAnchors: AnchorResolved[] = anchors
     .map((anchor) => {
       const wake = resolveAnchorWake(anchor, targetZone);
-      return { anchor, wake } satisfies AnchorResolved;
+      return { anchor, wake };
     })
-    .filter((value): value is AnchorResolved => value !== null);
 
   const anchorMap = new Map<string, DayAnchorInfo[]>();
   for (const item of resolvedAnchors) {
@@ -477,13 +474,11 @@ export function computePlan(core: CorePlan): ComputedView {
     }
   }
 
-  const maxWakeDate = resolvedAnchors.length
-    ? resolvedAnchors
+  const maxWakeDate =  resolvedAnchors
         .map((entry) => entry.wake.toPlainDate())
         .reduce((latest, current) =>
           Temporal.PlainDate.compare(current, latest) > 0 ? current : latest
         )
-    : initialWake.toPlainDate();
   const dateRange = enumerateDates(startSleep.toPlainDate(), maxWakeDate);
 
   const wakeSchedule = computeWakeSchedule(resolvedAnchors, dateRange, {
@@ -548,13 +543,8 @@ export function computePlan(core: CorePlan): ComputedView {
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
 
-  const projectedEvents = core.events.map((event) =>
-    projectEvent(event, displayZone)
-  );
-
-  const projectedAnchors = anchors.map((anchor) =>
-    projectAnchor(anchor, displayZone)
-  );
+  const projectedEvents = core.events.map((event) => projectEvent(event, displayZone));
+  const projectedAnchors = anchors.map((anchor) => projectAnchor(anchor, displayZone));
 
   return {
     days,
