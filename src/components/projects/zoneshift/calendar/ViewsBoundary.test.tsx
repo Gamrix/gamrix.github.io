@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -72,6 +72,9 @@ describe("Zoneshift day-boundary handling", () => {
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.targetZone}
         onEditEvent={vi.fn()}
+        onAddEvent={vi.fn()}
+        onAddAnchor={vi.fn()}
+        onAnchorChange={vi.fn()}
       />
     );
 
@@ -80,5 +83,93 @@ describe("Zoneshift day-boundary handling", () => {
     );
 
     expect(screen.getAllByText(/\(\+1 day\)/i).length).toBeGreaterThan(0);
+  });
+
+  it("opens the event composer when clicking an empty slot", async () => {
+    render(
+      <MiniCalendarView
+        computed={computedPlan}
+        displayZoneId={boundaryPlan.params.targetZone}
+        onEditEvent={vi.fn()}
+        onAddEvent={vi.fn()}
+        onAddAnchor={vi.fn()}
+        onAnchorChange={vi.fn()}
+      />
+    );
+
+    const interactiveAreas = Array.from(
+      document.querySelectorAll("div.relative.flex-1.w-full.overflow-visible"),
+    ) as HTMLDivElement[];
+
+    expect(interactiveAreas.length).toBeGreaterThan(0);
+
+    const target = interactiveAreas[0];
+
+    target.getBoundingClientRect = () =>
+      ({
+        top: 0,
+        left: 0,
+        width: 100,
+        height: 200,
+        right: 100,
+        bottom: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    fireEvent.pointerDown(target, {
+      pointerId: 1,
+      pointerType: "mouse",
+      clientY: 100,
+    });
+
+    expect(await screen.findByText(/Add event/i)).toBeInTheDocument();
+  });
+
+  it("shows hover affordance and opens composer when clicking the hover control", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MiniCalendarView
+        computed={computedPlan}
+        displayZoneId={boundaryPlan.params.targetZone}
+        onEditEvent={vi.fn()}
+        onAddEvent={vi.fn()}
+        onAddAnchor={vi.fn()}
+        onAnchorChange={vi.fn()}
+      />
+    );
+
+    const interactiveAreas = Array.from(
+      document.querySelectorAll("div.relative.flex-1.w-full.overflow-visible"),
+    ) as HTMLDivElement[];
+
+    expect(interactiveAreas.length).toBeGreaterThan(0);
+
+    const target = interactiveAreas[0];
+    target.getBoundingClientRect = () =>
+      ({
+        top: 0,
+        left: 0,
+        width: 100,
+        height: 200,
+        right: 100,
+        bottom: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    fireEvent.pointerMove(target, {
+      pointerId: 1,
+      pointerType: "mouse",
+      clientY: 80,
+    });
+
+    const hoverButton = await screen.findByLabelText(/Add event on/i);
+    await user.click(hoverButton);
+
+    expect(await screen.findByText(/Add event/i)).toBeInTheDocument();
   });
 });

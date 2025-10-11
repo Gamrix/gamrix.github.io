@@ -22,6 +22,32 @@ import {
   minutesSinceStartOfDay,
 } from "../utils/timeSegments";
 
+const EVENT_HOVER_DURATION_MINUTES = 60;
+const HOVER_EVENT_THRESHOLD_MINUTES = 12;
+const HOVER_WAKE_THRESHOLD_MINUTES = 20;
+
+const clampMinutesValue = (minutes: number) => {
+  if (minutes < 0) {
+    return 0;
+  }
+  if (minutes >= MINUTES_IN_DAY) {
+    return MINUTES_IN_DAY - 1;
+  }
+  return minutes;
+};
+
+const minutesToTimeString = (minutes: number) => {
+  const clamped = clampMinutesValue(minutes);
+  const hour = Math.floor(clamped / 60);
+  const minute = clamped % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+};
+
+const timeStringToMinutes = (value: string) => {
+  const time = Temporal.PlainTime.from(value);
+  return time.hour * 60 + time.minute;
+};
+
 type MiniCalendarViewProps = {
   computed: ComputedView;
   displayZoneId: string;
@@ -76,7 +102,7 @@ type MiniEvent = {
   displayTime?: string;
 };
 
-const TIMELINE_HEIGHT = "min(26rem, 70vh)";
+const TIMELINE_HEIGHT = "min(34rem, 80vh)";
 const HEADER_HEIGHT = "2.5rem";
 const AXIS_WIDTH = "clamp(2.25rem, 12vw, 3.5rem)";
 const TOTAL_HEIGHT = `calc(${TIMELINE_HEIGHT} + ${HEADER_HEIGHT})`;
@@ -177,6 +203,10 @@ type DragState = {
   anchorId?: string;
 };
 
+type HoverTarget =
+  | { type: "event"; dayKey: string; minutes: number }
+  | { type: "wake"; dayKey: string; minutes: number };
+
 const setPointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   const target = event.currentTarget as Element & {
     setPointerCapture?: (pointerId: number) => void;
@@ -235,6 +265,7 @@ export function MiniCalendarView({
   const [composerError, setComposerError] = useState<string | null>(null);
   const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const suppressClickRef = useRef(false);
+  const [hoverTarget, setHoverTarget] = useState<HoverTarget | null>(null);
 
   const setScrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     setScrollContainer(node);
@@ -256,19 +287,42 @@ export function MiniCalendarView({
     setComposerError(null);
   }, []);
 
+  useEffect(() => {
+    if (composer) {
+      setHoverTarget(null);
+    }
+  }, [composer]);
+
+  useEffect(() => {
+    if (composer) {
+      setHoverTarget(null);
+    }
+  }, [composer]);
+
   const openEventComposer = useCallback(
-    (day: ComputedView["days"][number]) => {
+    (day: ComputedView["days"][number], minuteOverride?: number) => {
       const dayKey = day.wakeDisplayDate.toString();
-      const startDisplay = day.wakeZoned.withTimeZone(displayZoneId);
-      const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
+      const brightStartDisplay = day.brightStartZoned
+        ? day.brightStartZoned.withTimeZone(displayZoneId)
+        : day.sleepStartZoned.withTimeZone(displayZoneId);
+      const brightEndDisplay = day.brightEndZoned
+        ? day.brightEndZoned.withTimeZone(displayZoneId)
+        : null;
+
+      const startMinutes =
+        minuteOverride !== undefined
+          ? clampMinutesValue(minuteOverride)
+          : minutesSinceStartOfDay(brightStartDisplay);
+      const endMinutes =
+        minuteOverride !== undefined
+          ? clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES)
+          : brightEndDisplay
+            ? minutesSinceStartOfDay(brightEndDisplay)
+            : clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES);
       setEventDraft({
         title: "",
-        start: startDisplay
-          .toPlainTime()
-          .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-        end: endDisplay
-          .toPlainTime()
-          .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        start: minutesToTimeString(startMinutes),
+        end: minutesToTimeString(endMinutes),
       });
       setComposer({ type: "event", dayKey });
       setComposerError(null);
@@ -277,10 +331,12 @@ export function MiniCalendarView({
   );
 
   const openWakeComposer = useCallback(
-    (day: ComputedView["days"][number]) => {
+    (day: ComputedView["days"][number], minuteOverride?: number) => {
       const dayKey = day.wakeDisplayDate.toString();
       setWakeDraft({
-        time: day.wakeTimeLocal,
+        time: minutesToTimeString(
+          minuteOverride ?? timeStringToMinutes(day.wakeTimeLocal)
+        ),
         note: "",
       });
       setComposer({ type: "wake", dayKey });
@@ -710,7 +766,7 @@ export function MiniCalendarView({
     [dragState]
   );
 
-  const handleButtonClick = useCallback(
+const handleButtonClick = useCallback(
     (_event: MouseEvent<HTMLButtonElement>, eventId: string) => {
       if (suppressClickRef.current) {
         suppressClickRef.current = false;
@@ -719,6 +775,154 @@ export function MiniCalendarView({
       setExpandedEventId((prev) => (prev === eventId ? null : eventId));
     },
     []
+  );
+
+  const handleColumnPointerMove = useCallback(
+    (meta: {
+      dayKey: string;
+      hasWakeAnchor: boolean;
+      wakeMinutes: number;
+      events: MiniEvent[];
+      day: ComputedView["days"][number];
+    }) =>
+      (event: ReactPointerEvent<HTMLDivElement>) => {
+        if (dragState || composer) {
+          return;
+        }
+        const container = event.currentTarget;
+        const rect = container.getBoundingClientRect();
+        if (rect.height === 0) {
+          setHoverTarget(null);
+          return;
+        }
+        const offsetY = event.clientY - rect.top;
+        if (offsetY < 0 || offsetY > rect.height) {
+          setHoverTarget(null);
+          return;
+        }
+        if (!onAddEvent && !onAddAnchor) {
+          setHoverTarget(null);
+          return;
+        }
+
+        const ratio = offsetY / rect.height;
+        const minutes = clampMinutesValue(
+          Math.round(ratio * MINUTES_IN_DAY)
+        );
+
+        const isNearExisting = meta.events.some((current) => {
+          const startMinutes = clampMinutesValue(
+            getMinutesFromZdt(current.start)
+          );
+          const threshold =
+            current.kind === "wake"
+              ? HOVER_WAKE_THRESHOLD_MINUTES
+              : HOVER_EVENT_THRESHOLD_MINUTES;
+          return Math.abs(startMinutes - minutes) <= threshold;
+        });
+
+        const canShowWake =
+          Boolean(onAddAnchor) &&
+          !meta.hasWakeAnchor &&
+          Math.abs(meta.wakeMinutes - minutes) <= HOVER_WAKE_THRESHOLD_MINUTES;
+
+        if (canShowWake) {
+          setHoverTarget({
+            type: "wake",
+            dayKey: meta.dayKey,
+            minutes: meta.wakeMinutes,
+          });
+          return;
+        }
+
+        if (onAddEvent && !isNearExisting) {
+          setHoverTarget({
+            type: "event",
+            dayKey: meta.dayKey,
+            minutes,
+          });
+          return;
+        }
+
+        setHoverTarget(null);
+      },
+    [composer, dragState, onAddAnchor, onAddEvent]
+  );
+
+  const handleColumnPointerLeave = useCallback(() => {
+    setHoverTarget(null);
+  }, []);
+
+  const handleHoverCreate = useCallback(
+    (
+      kind: "event" | "wake",
+      day: ComputedView["days"][number],
+      minutes: number
+    ) => {
+      if (kind === "wake") {
+        openWakeComposer(day, minutes);
+      } else {
+        openEventComposer(day, minutes);
+      }
+      setHoverTarget(null);
+    },
+    [openEventComposer, openWakeComposer]
+  );
+
+  const handleColumnPointerDown = useCallback(
+    (meta: {
+      dayKey: string;
+      hasWakeAnchor: boolean;
+      wakeMinutes: number;
+      events: MiniEvent[];
+      day: ComputedView["days"][number];
+    }) =>
+      (event: ReactPointerEvent<HTMLDivElement>) => {
+        if (dragState || composer) {
+          return;
+        }
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("button")) {
+          return;
+        }
+        event.preventDefault();
+        const container = event.currentTarget;
+        const rect = container.getBoundingClientRect();
+        if (rect.height === 0) {
+          return;
+        }
+        const offsetY = event.clientY - rect.top;
+        if (offsetY < 0 || offsetY > rect.height) {
+          return;
+        }
+        const ratio = offsetY / rect.height;
+        const minutes = clampMinutesValue(Math.round(ratio * MINUTES_IN_DAY));
+        const isNearExisting = meta.events.some((current) => {
+          const startMinutes = clampMinutesValue(
+            getMinutesFromZdt(current.start)
+          );
+          const threshold =
+            current.kind === "wake"
+              ? HOVER_WAKE_THRESHOLD_MINUTES
+              : HOVER_EVENT_THRESHOLD_MINUTES;
+          return Math.abs(startMinutes - minutes) <= threshold;
+        });
+
+        const canCreateWake =
+          Boolean(onAddAnchor) &&
+          !meta.hasWakeAnchor &&
+          Math.abs(meta.wakeMinutes - minutes) <= HOVER_WAKE_THRESHOLD_MINUTES;
+
+        if (canCreateWake) {
+          handleHoverCreate("wake", meta.day, meta.wakeMinutes);
+          return;
+        }
+
+        if (onAddEvent && !isNearExisting) {
+          handleHoverCreate("event", meta.day, minutes);
+        }
+      },
+    [composer, dragState, handleHoverCreate, onAddAnchor, onAddEvent]
   );
 
   useEffect(() => {
@@ -929,7 +1133,13 @@ export function MiniCalendarView({
               >
                 <div className="flex h-full gap-4">
                   {visibleTimeline.map(
-                    ({ day, segments, events }) => {
+                    ({
+                      day,
+                      segments,
+                      events,
+                      hasWakeAnchor,
+                      wakeMinutes,
+                    }) => {
                       const isoDate = day.wakeDisplayDate;
                       const dayKey = isoDate.toString();
                       const weekday = isoDate.toLocaleString("en-US", {
@@ -950,38 +1160,33 @@ export function MiniCalendarView({
                             minWidth: `${DAY_COLUMN_WIDTH_PX}px`,
                           }}
                         >
-                          <div className="absolute inset-x-0 top-0 flex h-10 items-center justify-between px-2 text-xs text-muted-foreground">
+                          <div className="absolute inset-x-0 top-0 flex h-10 items-center px-2 text-xs text-muted-foreground">
                             <div className="flex flex-col leading-tight">
                               <span className="font-semibold text-foreground">
                                 {weekday}
                               </span>
                               <span>{dateLabel}</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              {onAddEvent ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openEventComposer(day)}
-                                  className="h-6 rounded-full border border-border bg-card px-2 text-[10px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                                  aria-label={`Add event on ${dateLabel}`}
-                                >
-                                  Event
-                                </button>
-                              ) : null}
-                              {onAddAnchor ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openWakeComposer(day)}
-                                  className="h-6 rounded-full border border-border bg-card px-2 text-[10px] font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                                  aria-label={`Add wake anchor on ${dateLabel}`}
-                                >
-                                  Wake
-                                </button>
-                              ) : null}
-                            </div>
                           </div>
-                          <div className="absolute inset-x-0 bottom-0 top-10">
-                            <div className="relative h-full w-full overflow-visible">
+                          <div className="absolute inset-x-0 bottom-0 top-10 flex flex-col">
+                            <div
+                              className="relative flex-1 w-full overflow-visible"
+                              onPointerMove={handleColumnPointerMove({
+                                dayKey,
+                                hasWakeAnchor,
+                                wakeMinutes,
+                                events,
+                                day,
+                              })}
+                              onPointerDown={handleColumnPointerDown({
+                                dayKey,
+                                hasWakeAnchor,
+                                wakeMinutes,
+                                events,
+                                day,
+                              })}
+                              onPointerLeave={handleColumnPointerLeave}
+                            >
                               <div className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-border" />
                               {segments.map((segment, index) => (
                                 <div
@@ -1133,6 +1338,35 @@ export function MiniCalendarView({
                                   </Fragment>
                                 );
                               })}
+                              {hoverTarget && hoverTarget.dayKey === dayKey ? (
+                                <button
+                                  type="button"
+                                  className={`absolute left-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-sm font-semibold leading-none shadow-sm focus-visible:outline-none focus-visible:ring-2 ${
+                                    hoverTarget.type === "wake"
+                                      ? "bg-emerald-500/70 border-emerald-600 text-emerald-900 focus-visible:ring-emerald-500/70"
+                                      : "bg-white/90 border-border text-foreground focus-visible:ring-ring/60"
+                                  }`}
+                                  style={{
+                                    top: `${(
+                                      hoverTarget.minutes / MINUTES_IN_DAY
+                                    ) * 100}%`,
+                                  }}
+                                  onClick={() =>
+                                    handleHoverCreate(
+                                      hoverTarget.type,
+                                      day,
+                                      hoverTarget.minutes
+                                    )
+                                  }
+                                  aria-label={
+                                    hoverTarget.type === "wake"
+                                      ? `Add wake anchor on ${dateLabel}`
+                                      : `Add event on ${dateLabel}`
+                                  }
+                                >
+                                  +
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         </div>
