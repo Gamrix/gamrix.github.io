@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { planActions, planStore } from "./planStore";
-import { resolvePlanContext } from "@/scripts/projects/zoneshift/model";
+import { computePlan, resolvePlanContext } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
 const targetZone = sampleCorePlan.params.targetZone;
@@ -135,5 +135,86 @@ describe("planStore", () => {
     if (!reloadedAnchor) return;
     expect(reloadedAnchor.instant).toBe(updatedInstant);
     expect(reloadedAnchor.note).toBe("Custom alignment wake");
+  });
+
+  it("reproduces early-home-zone anchor drag issue", () => {
+    planActions.setDisplayZone("home");
+    const basePlan = planStore.getState().plan;
+    const targetZone = basePlan.params.targetZone;
+    const homeZone = basePlan.params.homeZone;
+
+    const newAnchorZdt = Temporal.ZonedDateTime.from({
+      timeZone: homeZone,
+      year: 2024,
+      month: 10,
+      day: 20,
+      hour: 10,
+      minute: 0,
+    });
+
+    planActions.addAnchorAt({ zoned: newAnchorZdt, zone: homeZone });
+    const createdAnchor =
+      planStore
+        .getState()
+        .plan.anchors.find(
+          (anchor) =>
+            anchor.zone === homeZone &&
+            Temporal.Instant.from(anchor.instant)
+              .toZonedDateTimeISO(homeZone)
+              .equals(newAnchorZdt.withPlainTime({ hour: 10, minute: 0 }))
+        ) ?? null;
+    expect(createdAnchor).not.toBeNull();
+    if (!createdAnchor) return;
+
+    const moveTo = newAnchorZdt.with({ hour: 6, minute: 30 });
+
+    planActions.moveAnchor(
+      createdAnchor.id,
+      { instant: moveTo, zone: homeZone },
+      planStore.getState().plan.prefs?.timeStepMinutes ?? 30
+    );
+
+    expect(planStore.getState().plan.anchors.length).toBe(4);
+    const computed = computePlan(planStore.getState().plan);
+    const hasNaN = computed.days.some((day) =>
+      Number.isNaN(day.sleepStartZoned.epochMilliseconds)
+    );
+    expect(hasNaN).toBe(false);
+    expect(
+      new Set(computed.days.map((day) => day.wakeInstant.toString())).size
+    ).toBe(computed.days.length);
+    const displayDates = computed.days.map((day) =>
+      day.wakeDisplayDate.toString()
+    );
+    const uniqueDates = new Set(displayDates);
+    expect(uniqueDates.size).toBe(displayDates.length);
+  });
+
+  it("keeps wake dates unique when adjusting anchor in target zone view", () => {
+    planActions.resetToSample();
+    planActions.setDisplayZone("target");
+    const plan = planStore.getState().plan;
+    const targetZone = plan.params.targetZone;
+    const anchor = plan.anchors.find((item) => item.zone === targetZone);
+    expect(anchor).not.toBeUndefined();
+    if (!anchor) return;
+
+    const originalZdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
+      targetZone
+    );
+
+    const moveTo = originalZdt.with({ hour: 6, minute: 30 });
+    planActions.moveAnchor(
+      anchor.id,
+      { instant: moveTo, zone: targetZone },
+      planStore.getState().plan.prefs?.timeStepMinutes ?? 30
+    );
+
+    const computed = computePlan(planStore.getState().plan);
+    const displayDates = computed.days.map((day) =>
+      day.wakeDisplayDate.toString()
+    );
+    const uniqueDates = new Set(displayDates);
+    expect(uniqueDates.size).toBe(displayDates.length);
   });
 });
