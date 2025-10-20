@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
@@ -171,5 +171,160 @@ describe("Zoneshift day-boundary handling", () => {
     await user.click(hoverButton);
 
     expect(await screen.findByText(/Add event/i)).toBeInTheDocument();
+  });
+
+  it("allows dragging events with touch pointers", async () => {
+    const onEventChange = vi.fn();
+
+    render(
+      <MiniCalendarView
+        computed={computedPlan}
+        displayZoneId={boundaryPlan.params.targetZone}
+        onEditEvent={vi.fn()}
+        onAddEvent={vi.fn()}
+        onAddAnchor={vi.fn()}
+        onAnchorChange={vi.fn()}
+        onEventChange={onEventChange}
+      />
+    );
+
+    const dayColumns = Array.from(
+      document.querySelectorAll("div.relative.h-full.flex-shrink-0")
+    ) as HTMLDivElement[];
+
+    dayColumns.forEach((column, index) => {
+      column.getBoundingClientRect = () =>
+        ({
+          top: 0,
+          left: index * 120,
+          width: 100,
+          height: 200,
+          right: index * 120 + 100,
+          bottom: 200,
+          x: index * 120,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect;
+    });
+
+    const eventButton = screen.getByRole("button", {
+      name: /Overnight Session/i,
+    }) as HTMLButtonElement;
+
+    eventButton.getBoundingClientRect = () =>
+      ({
+        top: 40,
+        left: 40,
+        width: 24,
+        height: 24,
+        right: 64,
+        bottom: 64,
+        x: 40,
+        y: 40,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    await act(async () => {
+      fireEvent.pointerDown(eventButton, {
+        pointerId: 5,
+        pointerType: "touch",
+        clientX: 52,
+        clientY: 52,
+      });
+    });
+
+    await waitFor(() =>
+      expect(eventButton.className).toMatch(/cursor-grabbing/)
+    );
+
+    await act(async () => {
+      fireEvent.pointerMove(eventButton, {
+        pointerId: 5,
+        pointerType: "touch",
+        clientX: 52,
+        clientY: 140,
+      });
+    });
+
+    await act(async () => {
+      fireEvent.pointerUp(eventButton, {
+        pointerId: 5,
+        pointerType: "touch",
+        clientX: 52,
+        clientY: 140,
+      });
+    });
+
+    await waitFor(() =>
+      expect(eventButton.className).toMatch(/cursor-grab/)
+    );
+  });
+
+  it("opens the composer when tapping an empty slot with touch", async () => {
+    render(
+      <MiniCalendarView
+        computed={computedPlan}
+        displayZoneId={boundaryPlan.params.targetZone}
+        onEditEvent={vi.fn()}
+        onAddEvent={vi.fn()}
+        onAddAnchor={vi.fn()}
+        onAnchorChange={vi.fn()}
+      />
+    );
+
+    const interactiveAreas = Array.from(
+      document.querySelectorAll("div.relative.flex-1.w-full.overflow-visible")
+    ) as HTMLDivElement[];
+
+    expect(interactiveAreas.length).toBeGreaterThan(0);
+
+    const target = interactiveAreas[0];
+
+    target.getBoundingClientRect = () =>
+      ({
+        top: 0,
+        left: 0,
+        width: 100,
+        height: 200,
+        right: 100,
+        bottom: 200,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    fireEvent.pointerDown(target, {
+      pointerId: 7,
+      pointerType: "touch",
+      clientY: 90,
+    });
+
+    expect(await screen.findByText(/Add event/i)).toBeInTheDocument();
+  });
+
+  it("marks touch-interactive elements with explicit touch-action rules", () => {
+    render(
+      <MiniCalendarView
+        computed={computedPlan}
+        displayZoneId={boundaryPlan.params.targetZone}
+        onEditEvent={vi.fn()}
+        onAddEvent={vi.fn()}
+        onAddAnchor={vi.fn()}
+        onAnchorChange={vi.fn()}
+      />
+    );
+
+    const eventButton = screen.getByRole("button", {
+      name: /Overnight Session/i,
+    });
+
+    expect(eventButton.className).toMatch(/touch-none/);
+
+    const interactiveArea = document.querySelector(
+      "div.relative.flex-1.w-full.overflow-visible"
+    );
+
+    expect(interactiveArea).not.toBeNull();
+    expect((interactiveArea as HTMLElement).className).toMatch(/touch-pan-x/);
   });
 });
