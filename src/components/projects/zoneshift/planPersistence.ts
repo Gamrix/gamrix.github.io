@@ -1,3 +1,4 @@
+import { Temporal } from "@js-temporal/polyfill";
 import {
   CorePlanSchema,
   type CorePlan,
@@ -5,6 +6,12 @@ import {
 } from "@/scripts/projects/zoneshift/model";
 
 export const STORAGE_KEY = "zoneshift-core-plan";
+
+const makeDayKey = (instantIso: string, zone: string) =>
+  Temporal.Instant.from(instantIso)
+    .toZonedDateTimeISO(zone)
+    .toPlainDate()
+    .toString();
 
 export const normalizePlan = (
   plan: CorePlan,
@@ -19,67 +26,41 @@ export const normalizePlan = (
     },
   };
   const context = resolvePlanContext(normalized);
-  const autoAnchors = context.autoAnchors;
-  const autoIds = new Set(autoAnchors.map((anchor) => anchor.id));
-  const previousAutoMap = new Map(
-    (previous?.anchors ?? [])
-      .filter((anchor) => autoIds.has(anchor.id))
-      .map((anchor) => [anchor.id, anchor] as const)
+  const targetZone = normalized.params.targetZone;
+  const dayKeys = new Set(
+    normalized.anchors.map((anchor) => makeDayKey(anchor.instant, targetZone))
   );
-  const anchorEntries = new Map(
-    normalized.anchors.map(
-      (anchor, index) => [anchor.id, { anchor, index }] as const
-    )
-  );
+
   let anchors = normalized.anchors;
-  let changed = false;
 
-  for (const autoAnchor of autoAnchors) {
-    const entry = anchorEntries.get(autoAnchor.id);
-    if (!entry) {
-      if (!changed) {
-        anchors = [...anchors];
-        changed = true;
-      }
-      anchors.push(autoAnchor);
-      continue;
+  const maybeAddAnchor = (dayKey: string, instantIso: string, id: string) => {
+    if (dayKeys.has(dayKey)) {
+      return;
     }
-
-    if (previous === undefined) {
-      continue;
-    }
-
-    const previousAnchor = previousAutoMap.get(autoAnchor.id);
-    const anchorUnchanged =
-      previousAnchor !== undefined &&
-      previousAnchor.instant === entry.anchor.instant &&
-      previousAnchor.zone === entry.anchor.zone &&
-      previousAnchor.note === entry.anchor.note;
-    if (previousAnchor !== undefined && !anchorUnchanged) {
-      continue;
-    }
-
-    const needsUpdate =
-      entry.anchor.instant !== autoAnchor.instant ||
-      entry.anchor.zone !== autoAnchor.zone ||
-      entry.anchor.note !== autoAnchor.note;
-    if (!needsUpdate) {
-      continue;
-    }
-
-    if (!changed) {
+    if (anchors === normalized.anchors) {
       anchors = [...anchors];
-      changed = true;
     }
-    anchors[entry.index] = {
-      ...entry.anchor,
-      instant: autoAnchor.instant,
-      zone: autoAnchor.zone,
-      note: autoAnchor.note,
-    };
-  }
+    anchors.push({
+      id,
+      kind: "wake",
+      instant: instantIso,
+      zone: targetZone,
+    });
+    dayKeys.add(dayKey);
+  };
 
-  if (!changed) {
+  maybeAddAnchor(
+    context.startWake.toPlainDate().toString(),
+    context.startWake.toInstant().toString(),
+    "__auto-start"
+  );
+  maybeAddAnchor(
+    context.alignedWake.toPlainDate().toString(),
+    context.alignedWake.toInstant().toString(),
+    "__auto-end"
+  );
+
+  if (anchors === normalized.anchors) {
     return normalized;
   }
 

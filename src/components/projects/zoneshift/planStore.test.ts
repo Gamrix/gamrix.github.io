@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Temporal } from "@js-temporal/polyfill";
 
 import { planActions, planStore } from "./planStore";
+import { resolvePlanContext } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
 const targetZone = sampleCorePlan.params.targetZone;
@@ -67,5 +68,72 @@ describe("planStore", () => {
     planActions.importPlan(nextPlan);
     const raw = window.localStorage.getItem("zoneshift-core-plan");
     expect(raw).toBeTruthy();
+  });
+
+  const makeDayKey = (instantIso: string, zone: string) =>
+    Temporal.Instant.from(instantIso)
+      .toZonedDateTimeISO(zone)
+      .toPlainDate()
+      .toString();
+
+  it("keeps edits to the start-day anchor through export and import", () => {
+    const plan = planStore.getState().plan;
+    const context = resolvePlanContext(plan);
+    const targetZone = plan.params.targetZone;
+    const startDayKey = context.startWake.toPlainDate().toString();
+    const startDayAnchor =
+      plan.anchors.find(
+        (anchor) => makeDayKey(anchor.instant, targetZone) === startDayKey
+      ) ?? null;
+    expect(startDayAnchor).not.toBeNull();
+    if (!startDayAnchor) return;
+
+    const updatedInstant = Temporal.Instant.from(startDayAnchor.instant)
+      .toZonedDateTimeISO(targetZone)
+      .add({ minutes: 45 })
+      .toInstant()
+      .toString();
+
+    planActions.updateAnchor(startDayAnchor.id, (anchor) => ({
+      ...anchor,
+      instant: updatedInstant,
+      note: "Custom alignment wake",
+    }));
+
+    const storedAnchor =
+      planStore
+        .getState()
+        .plan.anchors.find(
+          (anchor) => makeDayKey(anchor.instant, targetZone) === startDayKey
+        ) ?? null;
+    expect(storedAnchor).not.toBeNull();
+    if (!storedAnchor) return;
+    expect(storedAnchor.instant).toBe(updatedInstant);
+    expect(storedAnchor.note).toBe("Custom alignment wake");
+
+    const exported = planActions.exportPlan();
+    const parsed = JSON.parse(exported);
+    const parsedAnchor =
+      parsed.anchors.find(
+        (anchor: { instant: string; zone: string }) =>
+          makeDayKey(anchor.instant, targetZone) === startDayKey
+      ) ?? null;
+    expect(parsedAnchor).not.toBeNull();
+    if (!parsedAnchor) return;
+    expect(parsedAnchor.instant).toBe(updatedInstant);
+    expect(parsedAnchor.note).toBe("Custom alignment wake");
+
+    planActions.importPlan(parsed);
+
+    const reloadedAnchor =
+      planStore
+        .getState()
+        .plan.anchors.find(
+          (anchor) => makeDayKey(anchor.instant, targetZone) === startDayKey
+        ) ?? null;
+    expect(reloadedAnchor).not.toBeNull();
+    if (!reloadedAnchor) return;
+    expect(reloadedAnchor.instant).toBe(updatedInstant);
+    expect(reloadedAnchor.note).toBe("Custom alignment wake");
   });
 });

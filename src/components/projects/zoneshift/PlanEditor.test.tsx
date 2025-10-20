@@ -138,7 +138,7 @@ describe("PlanEditor", () => {
 
     const wakeSummary = (await screen.findAllByText(/Kickoff sleep/i))[0];
     const valueNode = wakeSummary.parentElement?.querySelector("dd");
-    expect(valueNode?.textContent).toContain("@ 16:30");
+    expect(valueNode?.textContent).toContain("@ 17:00");
   });
 
   it("exports plan JSON to the clipboard", async () => {

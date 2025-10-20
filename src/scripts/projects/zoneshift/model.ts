@@ -7,6 +7,12 @@ export type ShiftDirection = "later" | "earlier";
 
 const ZoneIdSchema = z.string().min(1, "Zone id required");
 
+const makeDayKey = (instantIso: string, zone: string) =>
+  Temporal.Instant.from(instantIso)
+    .toZonedDateTimeISO(zone)
+    .toPlainDate()
+    .toString();
+
 export const AnchorPointSchema = z.object({
   id: z.string().min(1),
   kind: z.literal("wake"),
@@ -406,31 +412,19 @@ export const resolvePlanContext = (core: CorePlan) => {
   const startInstant = startSleep.toInstant();
   const totalDeltaHours = computeZoneDeltaHours(core, startInstant);
   const strategy = normalizeShift(core.params, totalDeltaHours);
-  const initialWake = startSleep.add(sleepDuration);
+  const startWake = startSleep.add(sleepDuration);
   const shiftedStartSleep = startSleep.add({ days: strategy.daysNeeded });
   const alignedSleepStart = shiftedStartSleep.add({
     minutes: Math.round(strategy.shiftAmountHours * MINUTE),
   });
   const alignedWake = alignedSleepStart.add(sleepDuration);
-  const defaultAnchor: AnchorPoint = {
-    id: "default-shift-anchor",
-    kind: "wake",
-    instant: alignedWake.toInstant().toString(),
-    zone: targetZone,
-    note: "Auto-generated alignment anchor",
-  };
-  const initialAnchor: AnchorPoint = {
-    id: "__initial-wake",
-    kind: "wake",
-    instant: initialWake.toInstant().toString(),
-    zone: targetZone,
-  };
   return {
     sleepDuration,
     startSleep,
     totalDeltaHours,
     strategy,
-    autoAnchors: [defaultAnchor, initialAnchor] as const,
+    startWake,
+    alignedWake,
   };
 };
 
@@ -447,12 +441,28 @@ export function computePlan(core: CorePlan): ComputedView {
       : core.params.targetZone;
 
   const anchors: AnchorPoint[] = [...core.anchors];
-  const anchorIds = new Set(anchors.map((anchor) => anchor.id));
-  for (const autoAnchor of context.autoAnchors) {
-    if (!anchorIds.has(autoAnchor.id)) {
-      anchors.push(autoAnchor);
-      anchorIds.add(autoAnchor.id);
-    }
+  const startDayKey = context.startWake.toPlainDate().toString();
+  const endDayKey = context.alignedWake.toPlainDate().toString();
+  const anchorDayKeys = new Set(
+    anchors.map((anchor) => makeDayKey(anchor.instant, targetZone))
+  );
+  if (!anchorDayKeys.has(startDayKey)) {
+    anchors.push({
+      id: "__auto-start",
+      kind: "wake",
+      instant: context.startWake.toInstant().toString(),
+      zone: targetZone,
+    });
+    anchorDayKeys.add(startDayKey);
+  }
+  if (!anchorDayKeys.has(endDayKey)) {
+    anchors.push({
+      id: "__auto-end",
+      kind: "wake",
+      instant: context.alignedWake.toInstant().toString(),
+      zone: targetZone,
+    });
+    anchorDayKeys.add(endDayKey);
   }
 
   const resolvedAnchors: AnchorResolved[] = anchors
