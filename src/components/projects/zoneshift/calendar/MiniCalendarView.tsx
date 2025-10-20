@@ -1170,7 +1170,7 @@ const handleButtonClick = useCallback(
                           </div>
                           <div className="absolute inset-x-0 bottom-0 top-10 flex flex-col">
                             <div
-                              className="relative flex-1 w-full overflow-visible"
+                              className="relative flex-1 w-full overflow-visible touch-pan-x"
                               onPointerMove={handleColumnPointerMove({
                                 dayKey,
                                 hasWakeAnchor,
@@ -1260,7 +1260,7 @@ const handleButtonClick = useCallback(
                                       onClick={(clickEvent) =>
                                         handleButtonClick(clickEvent, item.id)
                                       }
-                                      className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
+                                    className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} touch-none focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
                                       style={{
                                         top: `calc(${topPercent}% - 12px)`,
                                       }}
