@@ -11,7 +11,6 @@ export const sampleCorePlan: CorePlan = {
     maxShiftLaterPerDayHours: 1.5,
     maxShiftEarlierPerDayHours: 1,
   },
-  defaultShiftAnchor: undefined,
   anchors: [
     {
       id: "taipei-morning-market",

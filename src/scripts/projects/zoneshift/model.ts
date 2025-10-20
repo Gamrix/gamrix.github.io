@@ -50,7 +50,6 @@ export const CorePlanSchema = z.object({
   id: z.string().min(1),
   version: z.literal(1),
   params: CoreParamsSchema,
-  defaultShiftAnchor: AnchorPointSchema.optional(),
   anchors: z.array(AnchorPointSchema),
   events: z.array(EventItemSchema),
   prefs: CorePrefsSchema,
@@ -396,7 +395,7 @@ export function projectInstant(iso: string, zone: ZoneId) {
   });
 }
 
-export function computePlan(core: CorePlan): ComputedView {
+export const resolvePlanContext = (core: CorePlan) => {
   const targetZone = core.params.targetZone;
   const sleepDurationMinutes = Math.round(core.params.sleepHours * MINUTE);
   const sleepDuration = Temporal.Duration.from({
@@ -413,29 +412,48 @@ export function computePlan(core: CorePlan): ComputedView {
     minutes: Math.round(strategy.shiftAmountHours * MINUTE),
   });
   const alignedWake = alignedSleepStart.add(sleepDuration);
-  const fallbackDefaultAnchor: AnchorPoint = {
+  const defaultAnchor: AnchorPoint = {
     id: "default-shift-anchor",
     kind: "wake",
     instant: alignedWake.toInstant().toString(),
     zone: targetZone,
     note: "Auto-generated alignment anchor",
   };
-  const defaultAnchor = core.defaultShiftAnchor ?? fallbackDefaultAnchor;
+  const initialAnchor: AnchorPoint = {
+    id: "__initial-wake",
+    kind: "wake",
+    instant: initialWake.toInstant().toString(),
+    zone: targetZone,
+  };
+  return {
+    sleepDuration,
+    startSleep,
+    totalDeltaHours,
+    strategy,
+    autoAnchors: [defaultAnchor, initialAnchor] as const,
+  };
+};
+
+export function computePlan(core: CorePlan): ComputedView {
+  const targetZone = core.params.targetZone;
+  const context = resolvePlanContext(core);
+  const sleepDuration = context.sleepDuration;
+  const startSleep = context.startSleep;
+  const totalDeltaHours = context.totalDeltaHours;
+  const strategy = context.strategy;
   const displayZone =
     core.prefs?.displayZone === "home"
       ? core.params.homeZone
       : core.params.targetZone;
 
-  const anchors: AnchorPoint[] = [
-    defaultAnchor,
-    {
-      id: "__initial-wake",
-      kind: "wake",
-      instant: initialWake.toInstant().toString(),
-      zone: targetZone,
-    },
-    ...core.anchors,
-  ];
+  const anchors: AnchorPoint[] = [...core.anchors];
+  const anchorIds = new Set(anchors.map((anchor) => anchor.id));
+  for (const autoAnchor of context.autoAnchors) {
+    if (!anchorIds.has(autoAnchor.id)) {
+      anchors.push(autoAnchor);
+      anchorIds.add(autoAnchor.id);
+    }
+  }
 
   const resolvedAnchors: AnchorResolved[] = anchors
     .map((anchor) => {
@@ -447,15 +465,12 @@ export function computePlan(core: CorePlan): ComputedView {
   for (const item of resolvedAnchors) {
     const wakeInstantKey = item.wake.toInstant().toString();
     const anchorInstant = item.wake.toInstant();
-    const isSystemAnchor =
-      item.anchor.id === "default-shift-anchor" ||
-      item.anchor.id.startsWith("__");
     const info: DayAnchorInfo = {
       id: item.anchor.id,
       kind: item.anchor.kind,
       note: item.anchor.note,
       instant: anchorInstant,
-      editable: !isSystemAnchor,
+      editable: true,
     };
     const existing = anchorMap.get(wakeInstantKey);
     if (existing) {

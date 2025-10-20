@@ -396,8 +396,7 @@ function ZoneShiftDemoComponent() {
     setActiveAnchorId(null);
   };
 
-  const handleExportPlan = () =>
-    JSON.stringify(normalizePlan(planState), null, 2);
+  const handleExportPlan = () => JSON.stringify(planState, null, 2);
 
   return (
     <section className="space-y-10">

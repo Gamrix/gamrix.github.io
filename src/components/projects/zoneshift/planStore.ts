@@ -41,8 +41,18 @@ const emit = () => {
 };
 
 const setState = (updater: (prev: PlanStoreState) => PlanStoreState) => {
-  const next = updater(state);
-  if (next === state) {
+  const candidate = updater(state);
+  const transformedPlan = normalizePlan(candidate.plan, state.plan);
+  const next =
+    transformedPlan === candidate.plan
+      ? candidate
+      : { ...candidate, plan: transformedPlan };
+  if (
+    next.plan === state.plan &&
+    next.viewMode === state.viewMode &&
+    next.activeEventId === state.activeEventId &&
+    next.activeAnchorId === state.activeAnchorId
+  ) {
     return;
   }
   state = next;
@@ -114,13 +124,16 @@ export const planActions = {
       (prev) =>
         ({
           ...prev,
-          plan: normalizePlan({
-            ...prev.plan,
-            params: {
-              ...prev.plan.params,
-              ...partial,
+          plan: normalizePlan(
+            {
+              ...prev.plan,
+              params: {
+                ...prev.plan.params,
+                ...partial,
+              },
             },
-          }),
+            prev.plan
+          ),
         }) satisfies PlanStoreState
     ),
   updateEvent: (eventId: string, updater: (event: EventItem) => EventItem) =>
@@ -316,7 +329,7 @@ export const planActions = {
           viewMode: "calendar",
         }) satisfies PlanStoreState
     ),
-  exportPlan: (): string => JSON.stringify(normalizePlan(state.plan), null, 2),
+  exportPlan: (): string => JSON.stringify(state.plan, null, 2),
   resetToSample: () =>
     setState(
       () =>
