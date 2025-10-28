@@ -51,7 +51,7 @@ export function EventDialog({
   onRemove,
 }: EventDialogProps) {
   const [title, setTitle] = useState("");
-  const [zone, setZone] = useState(plan.params.targetZone);
+  const [zone, setZone] = useState(plan.params.endTimeZone);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [colorHint, setColorHint] = useState<string | undefined>(undefined);
@@ -126,7 +126,7 @@ export function EventDialog({
               onChange={(event) => setZone(event.target.value)}
               className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
-              {[event.zone, plan.params.homeZone, plan.params.targetZone]
+              {[event.zone, plan.params.startTimeZone, plan.params.endTimeZone]
                 .filter((value, index, array) => array.indexOf(value) === index)
                 .map((value) => (
                   <option key={value} value={value}>

@@ -26,9 +26,9 @@ export const normalizePlan = (
     },
   };
   const context = resolvePlanContext(normalized);
-  const targetZone = normalized.params.targetZone;
+  const endTimeZone = normalized.params.endTimeZone;
   const dayKeys = new Set(
-    normalized.anchors.map((anchor) => makeDayKey(anchor.instant, targetZone))
+    normalized.anchors.map((anchor) => makeDayKey(anchor.instant, endTimeZone))
   );
 
   let anchors = normalized.anchors;
@@ -44,19 +44,19 @@ export const normalizePlan = (
       id,
       kind: "wake",
       instant: instantIso,
-      zone: targetZone,
+      zone: endTimeZone,
     });
     dayKeys.add(dayKey);
   };
 
   maybeAddAnchor(
-    context.startWake.toPlainDate().toString(),
-    context.startWake.toInstant().toString(),
+    context.startWakeInstant.toZonedDateTimeISO(endTimeZone).toPlainDate().toString(),
+    context.startWakeInstant.toString(),
     "__auto-start"
   );
   maybeAddAnchor(
-    context.alignedWake.toPlainDate().toString(),
-    context.alignedWake.toInstant().toString(),
+    context.endWakeInstant.toZonedDateTimeISO(endTimeZone).toPlainDate().toString(),
+    context.endWakeInstant.toString(),
     "__auto-end"
   );
 

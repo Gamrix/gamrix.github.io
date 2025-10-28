@@ -9,14 +9,14 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    const targetZoneLabels = await screen.findAllByText(sampleCorePlan.params.targetZone);
-    expect(targetZoneLabels.length).toBeGreaterThan(0);
+    const endZoneLabels = await screen.findAllByText(sampleCorePlan.params.endTimeZone);
+    expect(endZoneLabels.length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
-    await user.click(screen.getByRole("button", { name: sampleCorePlan.params.homeZone }));
+    await user.click(screen.getByRole("button", { name: sampleCorePlan.params.startTimeZone }));
 
-    const homeZoneLabels = await screen.findAllByText(sampleCorePlan.params.homeZone);
-    expect(homeZoneLabels.length).toBeGreaterThan(0);
+    const startZoneLabels = await screen.findAllByText(sampleCorePlan.params.startTimeZone);
+    expect(startZoneLabels.length).toBeGreaterThan(0);
   });
 
   it("allows updating wake times via the editor", async () => {

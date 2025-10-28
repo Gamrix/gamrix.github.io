@@ -44,10 +44,13 @@ export function PlanParamsForm({
   className,
   submitLabel,
 }: PlanParamsFormProps) {
-  const [homeZone, setHomeZone] = useState(plan.params.homeZone);
-  const [targetZone, setTargetZone] = useState(plan.params.targetZone);
+  const [startTimeZone, setStartTimeZone] = useState(plan.params.startTimeZone);
+  const [endTimeZone, setEndTimeZone] = useState(plan.params.endTimeZone);
   const [startSleepLocal, setStartSleepLocal] = useState(
-    formatLocalDateTime(plan.params.startSleepUtc, plan.params.targetZone)
+    formatLocalDateTime(plan.params.startSleepUtc, plan.params.endTimeZone)
+  );
+  const [endWakeLocal, setEndWakeLocal] = useState(
+    formatLocalDateTime(plan.params.endWakeUtc, plan.params.endTimeZone)
   );
   const [sleepHours, setSleepHours] = useState(plan.params.sleepHours);
   const [maxLater, setMaxLater] = useState(
@@ -59,10 +62,13 @@ export function PlanParamsForm({
   const [timeStep, setTimeStep] = useState(plan.prefs?.timeStepMinutes ?? 30);
 
   useEffect(() => {
-    setHomeZone(plan.params.homeZone);
-    setTargetZone(plan.params.targetZone);
+    setStartTimeZone(plan.params.startTimeZone);
+    setEndTimeZone(plan.params.endTimeZone);
     setStartSleepLocal(
-      formatLocalDateTime(plan.params.startSleepUtc, plan.params.targetZone)
+      formatLocalDateTime(plan.params.startSleepUtc, plan.params.endTimeZone)
+    );
+    setEndWakeLocal(
+      formatLocalDateTime(plan.params.endWakeUtc, plan.params.endTimeZone)
     );
     setSleepHours(plan.params.sleepHours);
     setMaxLater(plan.params.maxShiftLaterPerDayHours);
@@ -74,9 +80,10 @@ export function PlanParamsForm({
     event.preventDefault();
     try {
       onUpdateParams({
-        homeZone,
-        targetZone,
-        startSleepUtc: toInstant(startSleepLocal, targetZone),
+        startTimeZone,
+        endTimeZone,
+        startSleepUtc: toInstant(startSleepLocal, endTimeZone),
+        endWakeUtc: toInstant(endWakeLocal, endTimeZone),
         sleepHours,
         maxShiftLaterPerDayHours: maxLater,
         maxShiftEarlierPerDayHours: maxEarlier,
@@ -103,22 +110,22 @@ export function PlanParamsForm({
       </div>
 
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Home timezone
+        Start timezone
         <input
           type="text"
-          value={homeZone}
-          onChange={(event) => setHomeZone(event.target.value)}
+          value={startTimeZone}
+          onChange={(event) => setStartTimeZone(event.target.value)}
           className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           required
         />
       </label>
 
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        Target timezone
+        End timezone
         <input
           type="text"
-          value={targetZone}
-          onChange={(event) => setTargetZone(event.target.value)}
+          value={endTimeZone}
+          onChange={(event) => setEndTimeZone(event.target.value)}
           className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           required
         />
@@ -130,6 +137,17 @@ export function PlanParamsForm({
           type="datetime-local"
           value={startSleepLocal}
           onChange={(event) => setStartSleepLocal(event.target.value)}
+          className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          required
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        End wake time
+        <input
+          type="datetime-local"
+          value={endWakeLocal}
+          onChange={(event) => setEndWakeLocal(event.target.value)}
           className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           required
         />

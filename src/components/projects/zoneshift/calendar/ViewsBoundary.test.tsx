@@ -12,8 +12,8 @@ const boundaryPlan: CorePlan = {
   ...sampleCorePlan,
   params: {
     ...sampleCorePlan.params,
-    homeZone: "UTC",
-    targetZone: "UTC",
+    startTimeZone: "UTC",
+    endTimeZone: "UTC",
     startSleepUtc: "2024-01-01T22:00:00Z",
   },
   anchors: [],
@@ -41,7 +41,7 @@ describe("Zoneshift day-boundary handling", () => {
       <CalendarListView
         plan={boundaryPlan}
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditAnchor={vi.fn()}
         onEditEvent={vi.fn()}
       />
@@ -55,7 +55,7 @@ describe("Zoneshift day-boundary handling", () => {
       <CalendarView
         plan={boundaryPlan}
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditAnchor={vi.fn()}
         onEditEvent={vi.fn()}
       />
@@ -70,7 +70,7 @@ describe("Zoneshift day-boundary handling", () => {
     render(
       <MiniCalendarView
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
         onAddEvent={vi.fn()}
         onAddAnchor={vi.fn()}
@@ -89,7 +89,7 @@ describe("Zoneshift day-boundary handling", () => {
     render(
       <MiniCalendarView
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
         onAddEvent={vi.fn()}
         onAddAnchor={vi.fn()}
@@ -133,7 +133,7 @@ describe("Zoneshift day-boundary handling", () => {
     render(
       <MiniCalendarView
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
         onAddEvent={vi.fn()}
         onAddAnchor={vi.fn()}
@@ -179,7 +179,7 @@ describe("Zoneshift day-boundary handling", () => {
     render(
       <MiniCalendarView
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
         onAddEvent={vi.fn()}
         onAddAnchor={vi.fn()}
@@ -264,7 +264,7 @@ describe("Zoneshift day-boundary handling", () => {
     render(
       <MiniCalendarView
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
         onAddEvent={vi.fn()}
         onAddAnchor={vi.fn()}
@@ -306,7 +306,7 @@ describe("Zoneshift day-boundary handling", () => {
     render(
       <MiniCalendarView
         computed={computedPlan}
-        displayZoneId={boundaryPlan.params.targetZone}
+        displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
         onAddEvent={vi.fn()}
         onAddAnchor={vi.fn()}

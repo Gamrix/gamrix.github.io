@@ -86,8 +86,8 @@ function ZoneShiftDemoComponent() {
 
   const displayZoneId =
     displayZone === "home"
-      ? planState.params.homeZone
-      : planState.params.targetZone;
+      ? planState.params.startTimeZone
+      : planState.params.endTimeZone;
 
   const activeAnchor = useMemo(
     () =>

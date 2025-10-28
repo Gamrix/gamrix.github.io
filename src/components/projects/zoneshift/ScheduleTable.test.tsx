@@ -10,8 +10,8 @@ const overnightPlan: CorePlan = {
   ...sampleCorePlan,
   params: {
     ...sampleCorePlan.params,
-    homeZone: "UTC",
-    targetZone: "UTC",
+    startTimeZone: "UTC",
+    endTimeZone: "UTC",
     startSleepUtc: "2024-01-01T22:00:00Z",
   },
   anchors: [],
@@ -38,7 +38,7 @@ describe("ScheduleTable", () => {
     render(
       <ScheduleTable
         computed={computed}
-        displayZoneId={sampleCorePlan.params.targetZone}
+        displayZoneId={sampleCorePlan.params.endTimeZone}
       />
     );
 
@@ -61,7 +61,7 @@ describe("ScheduleTable", () => {
           projectedEvents: [],
           meta: { totalDeltaHours: 0, direction: "later", perDayShifts: [] },
         }}
-        displayZoneId={sampleCorePlan.params.targetZone}
+        displayZoneId={sampleCorePlan.params.endTimeZone}
       />
     );
 
@@ -81,7 +81,7 @@ describe("ScheduleTable", () => {
     render(
       <ScheduleTable
         computed={computed}
-        displayZoneId={sampleCorePlan.params.targetZone}
+        displayZoneId={sampleCorePlan.params.endTimeZone}
         onEditAnchor={handleEdit}
       />
     );
@@ -101,7 +101,7 @@ describe("ScheduleTable", () => {
     render(
       <ScheduleTable
         computed={computed}
-        displayZoneId={overnightPlan.params.targetZone}
+        displayZoneId={overnightPlan.params.endTimeZone}
       />
     );
 

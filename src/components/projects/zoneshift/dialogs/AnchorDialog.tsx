@@ -53,7 +53,7 @@ export function AnchorDialog({
   onUpdate,
   onRemove,
 }: AnchorDialogProps) {
-  const [zone, setZone] = useState(plan.params.targetZone);
+  const [zone, setZone] = useState(plan.params.endTimeZone);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [note, setNote] = useState("");
@@ -116,7 +116,7 @@ export function AnchorDialog({
               onChange={(event) => setZone(event.target.value)}
               className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
-              {[anchor.zone, plan.params.homeZone, plan.params.targetZone]
+              {[anchor.zone, plan.params.startTimeZone, plan.params.endTimeZone]
                 .filter((value, index, array) => array.indexOf(value) === index)
                 .map((value) => (
                   <option key={value} value={value}>

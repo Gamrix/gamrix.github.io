@@ -4,9 +4,10 @@ export const sampleCorePlan: CorePlan = {
   id: "zoneshift-demo",
   version: 1,
   params: {
-    homeZone: "America/Los_Angeles",
-    targetZone: "Asia/Taipei",
+    startTimeZone: "America/Los_Angeles",
+    endTimeZone: "Asia/Taipei",
     startSleepUtc: "2024-10-17T08:30:00Z",
+    endWakeUtc: "2024-10-26T01:00:00Z",
     sleepHours: 8,
     maxShiftLaterPerDayHours: 1.5,
     maxShiftEarlierPerDayHours: 1,

@@ -3,7 +3,7 @@ import { Temporal } from "@js-temporal/polyfill";
 import { z } from "zod";
 
 import {
-  type AnchorPoint,
+  type WakeAnchor,
   type CorePlan,
   type EventItem,
   CorePlanSchema,
@@ -235,7 +235,7 @@ export const planActions = {
     }),
   updateAnchor: (
     anchorId: string,
-    updater: (anchor: AnchorPoint) => AnchorPoint
+    updater: (anchor: WakeAnchor) => WakeAnchor
   ) =>
     setState(
       (prev) =>
@@ -317,7 +317,7 @@ export const planActions = {
       return {
         ...anchor,
         instant: snapped.toInstant().toString(),
-      } satisfies AnchorPoint;
+      } satisfies WakeAnchor;
     }),
   importPlan: (plan: CorePlan) =>
     setState(
@@ -344,10 +344,10 @@ export const planActions = {
     const plan = state.plan;
     const displayZone =
       plan.prefs?.displayZone === "home"
-        ? plan.params.homeZone
-        : plan.params.targetZone;
+        ? plan.params.startTimeZone
+        : plan.params.endTimeZone;
     return Temporal.Instant.from(iso)
-      .toZonedDateTimeISO(plan.params.targetZone)
+      .toZonedDateTimeISO(plan.params.endTimeZone)
       .withTimeZone(displayZone)
       .toInstant()
       .toString();

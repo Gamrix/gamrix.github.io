@@ -7,7 +7,7 @@ export type ShiftDirection = "later" | "earlier";
 
 const ZoneIdSchema = z.string().min(1, "Zone id required");
 
-export const AnchorPointSchema = z.object({
+export const WakeAnchorSchema = z.object({
   id: z.string().min(1),
   kind: z.literal("wake"),
   instant: z.string().datetime(),
@@ -15,7 +15,7 @@ export const AnchorPointSchema = z.object({
   note: z.string().optional(),
 });
 
-export type AnchorPoint = z.infer<typeof AnchorPointSchema>;
+export type WakeAnchor = z.infer<typeof WakeAnchorSchema>;
 
 export const EventItemSchema = z.object({
   id: z.string().min(1),
@@ -29,9 +29,10 @@ export const EventItemSchema = z.object({
 export type EventItem = z.infer<typeof EventItemSchema>;
 
 export const CoreParamsSchema = z.object({
-  homeZone: ZoneIdSchema,
-  targetZone: ZoneIdSchema,
+  startTimeZone: ZoneIdSchema,
+  endTimeZone: ZoneIdSchema,
   startSleepUtc: z.string().datetime(),
+  endWakeUtc: z.string().datetime(),
   sleepHours: z.number().min(0.25).max(18),
   maxShiftLaterPerDayHours: z.number().min(0).max(12),
   maxShiftEarlierPerDayHours: z.number().min(0).max(12),
@@ -50,42 +51,59 @@ export const CorePlanSchema = z.object({
   id: z.string().min(1),
   version: z.literal(1),
   params: CoreParamsSchema,
-  anchors: z.array(AnchorPointSchema),
+  anchors: z.array(WakeAnchorSchema),
   events: z.array(EventItemSchema),
   prefs: CorePrefsSchema,
 });
 
 export type CorePlan = z.infer<typeof CorePlanSchema>;
 
-export type DayComputed = {
-  wakeInstant: Temporal.Instant;
-  wakeZoned: Temporal.ZonedDateTime;
-  wakeDisplayDate: Temporal.PlainDate;
-  changeThisDayHours: number;
-  sleepStartLocal: string;
-  sleepStartZoned: Temporal.ZonedDateTime;
-  wakeTimeLocal: string;
-  brightEndZoned: Temporal.ZonedDateTime;
-  anchors: DayAnchorInfo[];
+export type ScheduleEvent = {
+  id: string;
+  kind: "sleep" | "bright" | "wake";
+  startInstant: Temporal.Instant;
+  endInstant?: Temporal.Instant;
+  anchorId?: string;
+};
+
+export type WakeScheduleEntry = {
+  wakeEvent: ScheduleEvent;
+  sleepEvent: ScheduleEvent;
+  brightEvent: ScheduleEvent;
+  anchor?: WakeAnchor;
+  shiftFromPreviousWakeHours: number;
+};
+
+export type DisplayEvent = {
+  id: string;
+  kind: "sleep" | "bright" | "wake" | "manual";
+  startZoned: Temporal.ZonedDateTime;
+  endZoned?: Temporal.ZonedDateTime;
+  splitFrom?: string;
+  splitPart?: "start" | "end";
+  anchorId?: string;
+  shiftFromPreviousWakeHours?: number;
+  title?: string;
+  colorHint?: string;
+  originalZone?: string;
+};
+
+export type DisplayDay = {
+  date: Temporal.PlainDate;
+  events: DisplayEvent[];
 };
 
 export type ComputedView = {
-  days: DayComputed[];
-  projectedEvents: Array<
-    EventItem & {
-      startZoned: Temporal.ZonedDateTime;
-      endZoned?: Temporal.ZonedDateTime;
-    }
-  >;
-  projectedAnchors: Array<
-    AnchorPoint & {
-      zonedDateTime: Temporal.ZonedDateTime;
-    }
-  >;
+  wakeSchedule: WakeScheduleEntry[];
+  displayDays: DisplayDay[];
+  manualEvents: DisplayEvent[];
+  days: DayComputed[]; // TEMP: Legacy compatibility
+  projectedEvents: DisplayEvent[]; // TEMP: Legacy compatibility (alias for manualEvents)
+  projectedAnchors: Array<WakeAnchor & { zonedDateTime: Temporal.ZonedDateTime }>; // TEMP: Legacy compatibility
   meta: {
     totalDeltaHours: number;
-    direction: ShiftDirection;
-    perDayShifts: number[];
+    direction: ShiftDirection; // TEMP: Legacy compatibility
+    perDayShifts: number[]; // TEMP: Legacy compatibility
   };
 };
 
@@ -94,23 +112,9 @@ export type InterpPolicy = {
   maxEarlierPerDay: number;
 };
 
-export type DayAnchorInfo = {
-  id: string;
-  kind: AnchorPoint["kind"];
-  note?: string;
-  instant: Temporal.Instant;
-  editable: boolean;
-};
-
 type AnchorResolved = {
-  anchor: AnchorPoint;
-  wake: Temporal.ZonedDateTime;
-};
-
-type ShiftStrategy = {
-  direction: ShiftDirection;
-  shiftAmountHours: number;
-  daysNeeded: number;
+  anchor: WakeAnchor;
+  wake: Temporal.Instant;
 };
 
 const MINUTE = 60;
@@ -130,165 +134,15 @@ const computeZoneDeltaHours = (
   core: CorePlan,
   startInstant: Temporal.Instant
 ) => {
-  const targetOffset = startInstant.toZonedDateTimeISO(
-    core.params.targetZone
+  const endOffset = startInstant.toZonedDateTimeISO(
+    core.params.endTimeZone
   ).offsetNanoseconds;
-  const homeOffset = startInstant.toZonedDateTimeISO(
-    core.params.homeZone
+  const startOffset = startInstant.toZonedDateTimeISO(
+    core.params.startTimeZone
   ).offsetNanoseconds;
-  const deltaNanoseconds = targetOffset - homeOffset;
+  const deltaNanoseconds = endOffset - startOffset;
   return deltaNanoseconds / NANOS_PER_HOUR;
 };
-
-const normalizeShift = (
-  params: CoreParams,
-  totalDeltaHours: number
-): ShiftStrategy => {
-  const { maxShiftLaterPerDayHours, maxShiftEarlierPerDayHours } = params;
-  const baseShift = -totalDeltaHours;
-  const laterShift = baseShift >= 0 ? baseShift : baseShift + 24;
-  const earlierShift = baseShift <= 0 ? baseShift : baseShift - 24;
-  const laterDays = Math.ceil(Math.abs(laterShift) / maxShiftLaterPerDayHours);
-  const earlierDays = Math.ceil(Math.abs(earlierShift) / maxShiftEarlierPerDayHours);
-
-  return laterDays <= earlierDays
-    ? { direction: "later", shiftAmountHours: laterShift, daysNeeded: laterDays }
-    : { direction: "earlier", shiftAmountHours: earlierShift, daysNeeded: earlierDays };
-};
-
-const computeWakeSchedule = (
-  resolvedAnchors: AnchorResolved[],
-  dateRange: Temporal.PlainDate[],
-  policy: InterpPolicy
-) => {
-  const wakeMap = new Map<string, Temporal.ZonedDateTime>();
-  if (resolvedAnchors.length === 0) {
-    return wakeMap;
-  }
-
-  const ordered = [...resolvedAnchors].sort((a, b) =>
-    Temporal.Instant.compare(a.wake.toInstant(), b.wake.toInstant())
-  );
-
-  const dateSet = new Set(dateRange.map((d) => d.toString()));
-
-  for (const item of ordered) {
-    const key = item.wake.toPlainDate().toString();
-    if (dateSet.has(key) && !wakeMap.has(key)) {
-      wakeMap.set(key, item.wake);
-    }
-  }
-
-  for (let i = 0; i < ordered.length - 1; i += 1) {
-    const left = ordered[i];
-    const right = ordered[i + 1];
-
-    let cursor = left.wake.toPlainDate();
-    const endDate = right.wake.toPlainDate();
-    const segmentDates: Temporal.PlainDate[] = [];
-    while (Temporal.PlainDate.compare(cursor, endDate) <= 0) {
-      if (dateSet.has(cursor.toString())) {
-        segmentDates.push(cursor);
-      }
-      if (Temporal.PlainDate.compare(cursor, endDate) === 0) {
-        break;
-      }
-      cursor = cursor.add({ days: 1 });
-    }
-
-    if (segmentDates.length < 2) {
-      continue;
-    }
-
-    const wakes = interpolateDailyWakeTimes(
-      left.wake,
-      right.wake,
-      segmentDates,
-      policy
-    );
-    for (let idx = 0; idx < segmentDates.length; idx += 1) {
-      const key = segmentDates[idx].toString();
-      if (idx === segmentDates.length - 1 || !wakeMap.has(key)) {
-        wakeMap.set(key, wakes[idx]);
-      }
-    }
-  }
-
-  let previous: Temporal.ZonedDateTime | undefined;
-  for (const date of dateRange) {
-    const key = date.toString();
-    if (wakeMap.has(key)) {
-      previous = wakeMap.get(key);
-      continue;
-    }
-    if (previous) {
-      const fallback = previous.add({ days: 1 });
-      wakeMap.set(key, fallback);
-      previous = fallback;
-    }
-  }
-
-  return wakeMap;
-};
-
-export function interpolateDailyWakeTimes(
-  startWake: Temporal.ZonedDateTime,
-  endWake: Temporal.ZonedDateTime,
-  dates: Array<string | Temporal.PlainDate>,
-  policy: InterpPolicy
-): Temporal.ZonedDateTime[] {
-  if (dates.length === 0) {
-    return [];
-  }
-
-  if (dates.length === 1) {
-    return [startWake];
-  }
-
-  const plainDates = dates.map((value) =>
-    typeof value === "string" ? Temporal.PlainDate.from(value) : value
-  );
-  const intervals = plainDates.length - 1;
-  const baseMinutes = intervals * 24 * MINUTE;
-  const totalMinutes =
-    (endWake.toInstant().epochMilliseconds -
-      startWake.toInstant().epochMilliseconds) /
-    (MINUTE * 1000);
-  const shiftMinutes = totalMinutes - baseMinutes;
-  const rawPerDay = shiftMinutes / intervals;
-  const maxLater = Math.round(policy.maxLaterPerDay * MINUTE);
-  const maxEarlier = -Math.round(policy.maxEarlierPerDay * MINUTE);
-  const stepMinutes = Math.min(Math.max(rawPerDay, maxEarlier), maxLater);
-
-  const result: Temporal.ZonedDateTime[] = [];
-  let current = startWake;
-  result.push(current);
-
-  for (let i = 1; i < intervals; i += 1) {
-    current = current.add({ days: 1 });
-    if (stepMinutes !== 0) {
-      current = current.add({ minutes: stepMinutes });
-    }
-    result.push(current);
-  }
-
-  result.push(endWake);
-  return result;
-}
-
-export function computeBrightWindow(
-  wake: Temporal.ZonedDateTime
-): Temporal.ZonedDateTime {
-  const brightEnd = wake.add({ hours: 5 });
-  const nextDayMidnight = wake.toPlainDate().add({ days: 1 }).toZonedDateTime({
-    timeZone: wake.timeZoneId,
-    plainTime: "00:00:00"
-  });
-
-  return Temporal.Instant.compare(brightEnd.toInstant(), nextDayMidnight.toInstant()) > 0
-    ? nextDayMidnight
-    : brightEnd;
-}
 
 export function projectInstant(iso: string, zone: ZoneId) {
   return toRoundedZonedDateTime(iso, zone, zone).toString({
@@ -297,195 +151,355 @@ export function projectInstant(iso: string, zone: ZoneId) {
   });
 }
 
+// TEMPORARY: Legacy compatibility layer for old UI components
+export type DayComputed = {
+  wakeInstant: Temporal.Instant;
+  wakeZoned: Temporal.ZonedDateTime;
+  wakeDisplayDate: Temporal.PlainDate;
+  changeThisDayHours: number;
+  sleepStartLocal: string;
+  sleepStartZoned: Temporal.ZonedDateTime;
+  wakeTimeLocal: string;
+  brightEndZoned: Temporal.ZonedDateTime;
+  anchors: Array<{
+    id: string;
+    kind: "wake";
+    note?: string;
+    instant: Temporal.Instant;
+    editable: boolean;
+  }>;
+};
+
+export function getLegacyDaysView(computed: ComputedView): DayComputed[] {
+  return computed.wakeSchedule.map((entry, index) => {
+    const allEvents = computed.displayDays.flatMap((d) => d.events);
+
+    // Find events by ID or by splitFrom
+    const wakeEvent = allEvents.find(
+      (e) => e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+    );
+    const sleepEvent = allEvents.find(
+      (e) => e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+    );
+    const brightEvent = allEvents.find(
+      (e) => e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+    );
+
+    if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) {
+      throw new Error(`Event not found in display days: wake=${!!wakeEvent}, sleep=${!!sleepEvent}, bright=${!!brightEvent}`);
+    }
+
+    const anchors = entry.anchor
+      ? [
+          {
+            id: entry.anchor.id,
+            kind: "wake" as const,
+            note: entry.anchor.note,
+            instant: Temporal.Instant.from(entry.anchor.instant),
+            editable: !entry.anchor.id.startsWith("__auto"),
+          },
+        ]
+      : [];
+
+    return {
+      wakeInstant: entry.wakeEvent.startInstant,
+      wakeZoned: wakeEvent.startZoned,
+      wakeDisplayDate: wakeEvent.startZoned.toPlainDate(),
+      changeThisDayHours: entry.shiftFromPreviousWakeHours,
+      sleepStartLocal: sleepEvent.startZoned
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      sleepStartZoned: sleepEvent.startZoned,
+      wakeTimeLocal: wakeEvent.startZoned
+        .toPlainTime()
+        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      brightEndZoned: brightEvent.endZoned!,
+      anchors,
+    };
+  });
+}
+
 export const resolvePlanContext = (core: CorePlan) => {
   const sleepDuration = Temporal.Duration.from({
     minutes: Math.round(core.params.sleepHours * MINUTE),
   });
-  const startSleep = Temporal.Instant.from(core.params.startSleepUtc)
-    .toZonedDateTimeISO(core.params.targetZone);
-  const totalDeltaHours = computeZoneDeltaHours(core, startSleep.toInstant());
-  const strategy = normalizeShift(core.params, totalDeltaHours);
-  const startWake = startSleep.add(sleepDuration);
-  const alignedWake = startSleep
-    .add({ days: strategy.daysNeeded })
-    .add({ minutes: Math.round(strategy.shiftAmountHours * MINUTE) })
-    .add(sleepDuration);
+  const startSleepInstant = Temporal.Instant.from(core.params.startSleepUtc);
+  const endWakeInstant = Temporal.Instant.from(core.params.endWakeUtc);
+  const totalDeltaHours = computeZoneDeltaHours(core, startSleepInstant);
+  const startWakeInstant = startSleepInstant.add(sleepDuration);
+
   return {
     sleepDuration,
-    startSleep,
+    startSleepInstant,
+    startWakeInstant,
+    endWakeInstant,
     totalDeltaHours,
-    strategy,
-    startWake,
-    alignedWake,
   };
 };
 
 export function computePlan(core: CorePlan): ComputedView {
-  const targetZone = core.params.targetZone;
   const context = resolvePlanContext(core);
-  const sleepDuration = context.sleepDuration;
-  const startSleep = context.startSleep;
-  const totalDeltaHours = context.totalDeltaHours;
-  const strategy = context.strategy;
   const displayZone =
     core.prefs?.displayZone === "home"
-      ? core.params.homeZone
-      : core.params.targetZone;
+      ? core.params.startTimeZone
+      : core.params.endTimeZone;
 
-  const anchors: AnchorPoint[] = [...core.anchors];
-  const startDayKey = context.startWake.toPlainDate().toString();
-  const endDayKey = context.alignedWake.toPlainDate().toString();
-  const anchorDayKeys = new Set(
-    anchors.map((anchor) =>
-      Temporal.Instant.from(anchor.instant)
-        .toZonedDateTimeISO(targetZone)
-        .toPlainDate()
-        .toString()
-    )
-  );
-  if (!anchorDayKeys.has(startDayKey)) {
+  // Step 2: Prepare anchors (auto-generate start and end in their respective zones)
+  const anchors: WakeAnchor[] = [...core.anchors];
+
+  // Check if we need to auto-generate start anchor
+  const startDayStart = context.startWakeInstant.toZonedDateTimeISO(core.params.startTimeZone)
+    .toPlainDate().toZonedDateTime({ timeZone: core.params.startTimeZone, plainTime: "00:00" });
+  const startDayEnd = startDayStart.add({ days: 1 });
+  const hasStartAnchor = anchors.some((a) => {
+    const instant = Temporal.Instant.from(a.instant);
+    return Temporal.Instant.compare(instant, startDayStart.toInstant()) >= 0 &&
+           Temporal.Instant.compare(instant, startDayEnd.toInstant()) < 0;
+  });
+  if (!hasStartAnchor) {
     anchors.push({
       id: "__auto-start",
       kind: "wake",
-      instant: context.startWake.toInstant().toString(),
-      zone: targetZone,
+      instant: context.startWakeInstant.toString(),
+      zone: core.params.startTimeZone,
     });
-    anchorDayKeys.add(startDayKey);
   }
-  if (!anchorDayKeys.has(endDayKey)) {
+
+  // Check if we need to auto-generate end anchor
+  const endDayStart = context.endWakeInstant.toZonedDateTimeISO(core.params.endTimeZone)
+    .toPlainDate().toZonedDateTime({ timeZone: core.params.endTimeZone, plainTime: "00:00" });
+  const endDayEnd = endDayStart.add({ days: 1 });
+  const hasEndAnchor = anchors.some((a) => {
+    const instant = Temporal.Instant.from(a.instant);
+    return Temporal.Instant.compare(instant, endDayStart.toInstant()) >= 0 &&
+           Temporal.Instant.compare(instant, endDayEnd.toInstant()) < 0;
+  });
+  if (!hasEndAnchor) {
     anchors.push({
       id: "__auto-end",
       kind: "wake",
-      instant: context.alignedWake.toInstant().toString(),
-      zone: targetZone,
+      instant: context.endWakeInstant.toString(),
+      zone: core.params.endTimeZone,
     });
-    anchorDayKeys.add(endDayKey);
   }
 
+  // Convert anchors to UTC for processing
   const resolvedAnchors: AnchorResolved[] = anchors
-    .map((anchor) => {
-      const wake = Temporal.Instant.from(anchor.instant)
-        .toZonedDateTimeISO(anchor.zone)
-        .withTimeZone(targetZone);
-      return { anchor, wake };
-    });
+    .map((anchor) => ({
+      anchor,
+      wake: Temporal.Instant.from(anchor.instant),
+    }))
+    .sort((a, b) => Temporal.Instant.compare(a.wake, b.wake));
 
-  const anchorMap = new Map<string, DayAnchorInfo[]>();
-  for (const item of resolvedAnchors) {
-    const wakeInstantKey = item.wake.toInstant().toString();
-    const anchorInstant = item.wake.toInstant();
-    const info: DayAnchorInfo = {
-      id: item.anchor.id,
-      kind: item.anchor.kind,
-      note: item.anchor.note,
-      instant: anchorInstant,
-      editable: true,
-    };
-    const existing = anchorMap.get(wakeInstantKey);
-    if (existing) {
-      existing.push(info);
-    } else {
-      anchorMap.set(wakeInstantKey, [info]);
+  // Step 4: Interpolate wake times with 6-hour buffer
+  const wakeInstants: { instant: Temporal.Instant; anchorId?: string }[] = [];
+
+  for (let i = 0; i < resolvedAnchors.length; i++) {
+    const current = resolvedAnchors[i];
+    wakeInstants.push({ instant: current.wake, anchorId: current.anchor.id });
+
+    // Fill forward until next anchor (with 6-hour buffer)
+    if (i < resolvedAnchors.length - 1) {
+      const next = resolvedAnchors[i + 1];
+      const nextSleepStart = next.wake.subtract(context.sleepDuration);
+      const buffer = Temporal.Duration.from({ hours: 6 });
+      const stopBefore = nextSleepStart.subtract(buffer);
+
+      let fillWake = current.wake.add(Temporal.Duration.from({ hours: 24 }));
+      while (Temporal.Instant.compare(fillWake, stopBefore) < 0) {
+        wakeInstants.push({ instant: fillWake });
+        fillWake = fillWake.add(Temporal.Duration.from({ hours: 24 }));
+      }
     }
   }
 
-  const maxWakeDate =  resolvedAnchors
-        .map((entry) => entry.wake.toPlainDate())
-        .reduce((latest, current) =>
-          Temporal.PlainDate.compare(current, latest) > 0 ? current : latest
-        )
-  const dateRange: Temporal.PlainDate[] = [];
-  let cursor = startSleep.toPlainDate();
-  while (Temporal.PlainDate.compare(cursor, maxWakeDate) <= 0) {
-    dateRange.push(cursor);
-    cursor = cursor.add({ days: 1 });
-  }
+  // Step 5: Generate ScheduleEvent objects
+  const schedule: WakeScheduleEntry[] = [];
+  let previousWakeInstant: Temporal.Instant | undefined;
 
-  const wakeSchedule = computeWakeSchedule(resolvedAnchors, dateRange, {
-    maxLaterPerDay: core.params.maxShiftLaterPerDayHours,
-    maxEarlierPerDay: core.params.maxShiftEarlierPerDayHours,
-  });
+  for (const { instant, anchorId } of wakeInstants) {
+    const sleepStartInstant = instant.subtract(context.sleepDuration);
+    const brightEndInstant = instant.add(Temporal.Duration.from({ hours: 5 }));
 
-  const wakeEntries = [...wakeSchedule.values()].sort((a, b) =>
-    Temporal.Instant.compare(a.toInstant(), b.toInstant())
-  );
+    const baseId = anchorId || instant.toString();
+    const anchor = anchorId ? anchors.find((a) => a.id === anchorId) : undefined;
 
-  const days: DayComputed[] = [];
-  const perDayShifts: number[] = [];
-  let previousSleepStart: Temporal.ZonedDateTime | undefined;
-
-  for (const wake of wakeEntries) {
-    const wakeInstant = wake.toInstant();
-    const sleepStart = wake.subtract(sleepDuration);
-    const sleepStartDisplay = sleepStart.withTimeZone(displayZone);
-    const wakeDisplay = wake.withTimeZone(displayZone);
-    const brightEnd = computeBrightWindow(wake);
-    const brightEndDisplay = brightEnd.withTimeZone(displayZone);
-
-    let changeHours = 0;
-    if (previousSleepStart) {
-      const baseline = previousSleepStart.add({ days: 1 });
-      const diffMinutes = sleepStart.since(baseline).total({ unit: "minutes" });
-      changeHours = diffMinutes / MINUTE;
+    let shiftHours = 0;
+    if (previousWakeInstant) {
+      const diffMinutes = instant.since(previousWakeInstant).total({ unit: "minutes" });
+      shiftHours = (diffMinutes - 24 * MINUTE) / MINUTE;
     }
 
-    perDayShifts.push(changeHours);
-
-    const sleepStartLocal = sleepStartDisplay
-      .toPlainTime()
-      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-    const wakeTimeLocal = wakeDisplay
-      .toPlainTime()
-      .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
-
-    days.push({
-      wakeInstant,
-      wakeZoned: wakeDisplay,
-      wakeDisplayDate: wakeDisplay.toPlainDate(),
-      changeThisDayHours: changeHours,
-      sleepStartLocal,
-      sleepStartZoned: sleepStartDisplay,
-      brightEndZoned: brightEndDisplay,
-      wakeTimeLocal,
-      anchors:
-        anchorMap.get(wakeInstant.toString())?.map((anchor) => ({ ...anchor })) ??
-        [],
+    schedule.push({
+      wakeEvent: {
+        id: `${baseId}-wake`,
+        kind: "wake",
+        startInstant: instant,
+        anchorId,
+      },
+      sleepEvent: {
+        id: `${baseId}-sleep`,
+        kind: "sleep",
+        startInstant: sleepStartInstant,
+        endInstant: instant,
+        anchorId,
+      },
+      brightEvent: {
+        id: `${baseId}-bright`,
+        kind: "bright",
+        startInstant: instant,
+        endInstant: brightEndInstant,
+        anchorId,
+      },
+      anchor,
+      shiftFromPreviousWakeHours: shiftHours,
     });
 
-    previousSleepStart = sleepStart;
+    previousWakeInstant = instant;
   }
 
-  if (perDayShifts.length > 0) {
-    perDayShifts[0] = 0;
+  // Step 6: Project to display zone and split events
+  const allDisplayEvents: DisplayEvent[] = [];
+
+  for (const entry of schedule) {
+    for (const event of [entry.sleepEvent, entry.wakeEvent, entry.brightEvent]) {
+      const projected = projectScheduleEventToDisplay(event, displayZone, entry.shiftFromPreviousWakeHours);
+      allDisplayEvents.push(...projected);
+    }
   }
 
-  const projectedEvents = core.events.map((event) => {
+  // Project manual events
+  const manualEvents: DisplayEvent[] = core.events.map((event) => {
     const startZoned = toRoundedZonedDateTime(event.start, event.zone, displayZone);
     const endZoned = event.end
       ? toRoundedZonedDateTime(event.end, event.zone, displayZone)
       : undefined;
-    return {
-      ...event,
+
+    const projected: DisplayEvent = {
+      id: event.id,
+      kind: "manual",
       startZoned,
       endZoned,
+      title: event.title,
+      colorHint: event.colorHint,
+      originalZone: event.zone,
     };
-  });
-  const projectedAnchors = anchors.map((anchor) => {
-    const zonedDateTime = toRoundedZonedDateTime(anchor.instant, anchor.zone, displayZone);
-    return {
-      ...anchor,
-      zonedDateTime,
-    };
-  });
 
-  return {
-    days,
-    projectedEvents,
-    projectedAnchors,
+    return projected;
+  }).flatMap((event) => splitEventByDay(event, displayZone));
+
+  // Build display days
+  const displayDays = buildDisplayDays(allDisplayEvents, displayZone);
+
+  const result: ComputedView = {
+    wakeSchedule: schedule,
+    displayDays,
+    manualEvents,
+    days: [], // Filled below
+    projectedEvents: manualEvents,
+    projectedAnchors: anchors.map((a) => ({
+      ...a,
+      zonedDateTime: Temporal.Instant.from(a.instant).toZonedDateTimeISO(displayZone),
+    })),
     meta: {
-      totalDeltaHours,
-      direction: strategy.direction,
-      perDayShifts,
+      totalDeltaHours: context.totalDeltaHours,
+      direction: context.totalDeltaHours >= 0 ? "later" : "earlier",
+      perDayShifts: schedule.map((s) => s.shiftFromPreviousWakeHours),
     },
   };
+
+  result.days = getLegacyDaysView(result);
+
+  return result;
+}
+
+function projectScheduleEventToDisplay(
+  event: ScheduleEvent,
+  displayZone: ZoneId,
+  shiftHours: number
+): DisplayEvent[] {
+  const startZoned = event.startInstant.toZonedDateTimeISO(displayZone);
+  const endZoned = event.endInstant?.toZonedDateTimeISO(displayZone);
+
+  const displayEvent: DisplayEvent = {
+    id: event.id,
+    kind: event.kind,
+    startZoned,
+    endZoned,
+    anchorId: event.anchorId,
+    shiftFromPreviousWakeHours: event.kind === "wake" ? shiftHours : undefined,
+  };
+
+  return splitEventByDay(displayEvent, displayZone);
+}
+
+function splitEventByDay(event: DisplayEvent, zone: ZoneId): DisplayEvent[] {
+  if (!event.endZoned) {
+    return [event];
+  }
+
+  const startDate = event.startZoned.toPlainDate();
+  const endDate = event.endZoned.toPlainDate();
+
+  if (Temporal.PlainDate.compare(startDate, endDate) === 0) {
+    return [event];
+  }
+
+  const splits: DisplayEvent[] = [];
+  let currentDate = startDate;
+  let currentStart = event.startZoned;
+
+  while (Temporal.PlainDate.compare(currentDate, endDate) <= 0) {
+    const nextDayMidnight = currentDate.add({ days: 1 }).toZonedDateTime({
+      timeZone: zone,
+      plainTime: "00:00",
+    });
+
+    const isLastPart = Temporal.PlainDate.compare(currentDate, endDate) === 0;
+    const currentEnd = isLastPart ? event.endZoned : nextDayMidnight;
+
+    const isFirstPart = Temporal.PlainDate.compare(currentDate, startDate) === 0;
+
+    splits.push({
+      ...event,
+      id: `${event.id}-${isFirstPart ? "start" : "end"}`,
+      startZoned: currentStart,
+      endZoned: currentEnd,
+      splitFrom: event.id,
+      splitPart: isFirstPart ? "start" : "end",
+    });
+
+    if (isLastPart) break;
+
+    currentDate = currentDate.add({ days: 1 });
+    currentStart = nextDayMidnight;
+  }
+
+  return splits;
+}
+
+function buildDisplayDays(events: DisplayEvent[], zone: ZoneId): DisplayDay[] {
+  const dayMap = new Map<string, DisplayEvent[]>();
+
+  for (const event of events) {
+    const date = event.startZoned.toPlainDate();
+    const key = date.toString();
+
+    if (!dayMap.has(key)) {
+      dayMap.set(key, []);
+    }
+    dayMap.get(key)!.push(event);
+  }
+
+  const days: DisplayDay[] = [];
+  const sortedKeys = [...dayMap.keys()].sort();
+
+  for (const key of sortedKeys) {
+    days.push({
+      date: Temporal.PlainDate.from(key),
+      events: dayMap.get(key)!,
+    });
+  }
+
+  return days;
 }

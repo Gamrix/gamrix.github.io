@@ -5,7 +5,7 @@ import { planActions, planStore } from "./planStore";
 import { computePlan, resolvePlanContext } from "@/scripts/projects/zoneshift/model";
 import { sampleCorePlan } from "@/scripts/projects/zoneshift/samplePlan";
 
-const targetZone = sampleCorePlan.params.targetZone;
+const endTimeZone = sampleCorePlan.params.endTimeZone;
 
 describe("planStore", () => {
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe("planStore", () => {
   it("adds anchors via addAnchorAt", () => {
     const beforeCount = planStore.getState().plan.anchors.length;
     const zoned = Temporal.ZonedDateTime.from({
-      timeZone: targetZone,
+      timeZone: endTimeZone,
       year: 2024,
       month: 10,
       day: 22,
@@ -24,7 +24,7 @@ describe("planStore", () => {
       minute: 0,
     });
 
-    planActions.addAnchorAt({ zoned, zone: targetZone });
+    planActions.addAnchorAt({ zoned, zone: endTimeZone });
 
     const after = planStore.getState().plan.anchors;
     expect(after.length).toBe(beforeCount + 1);
@@ -79,17 +79,17 @@ describe("planStore", () => {
   it("keeps edits to the start-day anchor through export and import", () => {
     const plan = planStore.getState().plan;
     const context = resolvePlanContext(plan);
-    const targetZone = plan.params.targetZone;
-    const startDayKey = context.startWake.toPlainDate().toString();
+    const endTimeZone = plan.params.endTimeZone;
+    const startDayKey = context.startWakeInstant.toZonedDateTimeISO(endTimeZone).toPlainDate().toString();
     const startDayAnchor =
       plan.anchors.find(
-        (anchor) => makeDayKey(anchor.instant, targetZone) === startDayKey
+        (anchor) => makeDayKey(anchor.instant, endTimeZone) === startDayKey
       ) ?? null;
     expect(startDayAnchor).not.toBeNull();
     if (!startDayAnchor) return;
 
     const updatedInstant = Temporal.Instant.from(startDayAnchor.instant)
-      .toZonedDateTimeISO(targetZone)
+      .toZonedDateTimeISO(endTimeZone)
       .add({ minutes: 45 })
       .toInstant()
       .toString();
@@ -104,7 +104,7 @@ describe("planStore", () => {
       planStore
         .getState()
         .plan.anchors.find(
-          (anchor) => makeDayKey(anchor.instant, targetZone) === startDayKey
+          (anchor) => makeDayKey(anchor.instant, endTimeZone) === startDayKey
         ) ?? null;
     expect(storedAnchor).not.toBeNull();
     if (!storedAnchor) return;
@@ -116,7 +116,7 @@ describe("planStore", () => {
     const parsedAnchor =
       parsed.anchors.find(
         (anchor: { instant: string; zone: string }) =>
-          makeDayKey(anchor.instant, targetZone) === startDayKey
+          makeDayKey(anchor.instant, endTimeZone) === startDayKey
       ) ?? null;
     expect(parsedAnchor).not.toBeNull();
     if (!parsedAnchor) return;
@@ -129,7 +129,7 @@ describe("planStore", () => {
       planStore
         .getState()
         .plan.anchors.find(
-          (anchor) => makeDayKey(anchor.instant, targetZone) === startDayKey
+          (anchor) => makeDayKey(anchor.instant, endTimeZone) === startDayKey
         ) ?? null;
     expect(reloadedAnchor).not.toBeNull();
     if (!reloadedAnchor) return;
@@ -140,10 +140,10 @@ describe("planStore", () => {
   it.skip("reproduces early-home-zone anchor drag issue", () => {
     planActions.setDisplayZone("home");
     const basePlan = planStore.getState().plan;
-    const homeZone = basePlan.params.homeZone;
+    const startTimeZone = basePlan.params.startTimeZone;
 
     const newAnchorZdt = Temporal.ZonedDateTime.from({
-      timeZone: homeZone,
+      timeZone: startTimeZone,
       year: 2024,
       month: 10,
       day: 20,
@@ -151,15 +151,15 @@ describe("planStore", () => {
       minute: 0,
     });
 
-    planActions.addAnchorAt({ zoned: newAnchorZdt, zone: homeZone });
+    planActions.addAnchorAt({ zoned: newAnchorZdt, zone: startTimeZone });
     const createdAnchor =
       planStore
         .getState()
         .plan.anchors.find(
           (anchor) =>
-            anchor.zone === homeZone &&
+            anchor.zone === startTimeZone &&
             Temporal.Instant.from(anchor.instant)
-              .toZonedDateTimeISO(homeZone)
+              .toZonedDateTimeISO(startTimeZone)
               .equals(newAnchorZdt.withPlainTime({ hour: 10, minute: 0 }))
         ) ?? null;
     expect(createdAnchor).not.toBeNull();
@@ -169,7 +169,7 @@ describe("planStore", () => {
 
     planActions.moveAnchor(
       createdAnchor.id,
-      { instant: moveTo, zone: homeZone },
+      { instant: moveTo, zone: startTimeZone },
       planStore.getState().plan.prefs?.timeStepMinutes ?? 30
     );
 
@@ -192,25 +192,25 @@ describe("planStore", () => {
     planActions.resetToSample();
     planActions.setDisplayZone("target");
     const plan = planStore.getState().plan;
-    const targetZone = plan.params.targetZone;
-    const anchor = plan.anchors.find((item) => item.zone === targetZone);
+    const endTimeZone = plan.params.endTimeZone;
+    const anchor = plan.anchors.find((item) => item.zone === endTimeZone);
     expect(anchor).not.toBeUndefined();
     if (!anchor) return;
 
     const originalZdt = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
-      targetZone
+      endTimeZone
     );
 
     const moveTo = originalZdt.with({ hour: 6, minute: 30 });
     planActions.moveAnchor(
       anchor.id,
-      { instant: moveTo, zone: targetZone },
+      { instant: moveTo, zone: endTimeZone },
       planStore.getState().plan.prefs?.timeStepMinutes ?? 30
     );
 
     const computed = computePlan(planStore.getState().plan);
-    const displayDates = computed.days.map((day) =>
-      day.wakeDisplayDate.toString()
+    const displayDates = computed.displayDays.map((day) =>
+      day.date.toString()
     );
     const uniqueDates = new Set(displayDates);
     expect(uniqueDates.size).toBe(displayDates.length);

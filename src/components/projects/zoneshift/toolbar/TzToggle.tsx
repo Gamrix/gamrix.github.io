@@ -2,15 +2,15 @@ import { Button } from "@/components/ui/button";
 
 type TzToggleProps = {
   displayZone: "home" | "target";
-  homeZone: string;
-  targetZone: string;
+  startTimeZone: string;
+  endTimeZone: string;
   onChange: (mode: "home" | "target") => void;
 };
 
 export function TzToggle({
   displayZone,
-  homeZone,
-  targetZone,
+  startTimeZone,
+  endTimeZone,
   onChange,
 }: TzToggleProps) {
   return (
@@ -23,14 +23,14 @@ export function TzToggle({
           size="sm"
           onClick={() => onChange("target")}
           aria-pressed={displayZone === "target"}
-          aria-label={targetZone}
+          aria-label={endTimeZone}
         >
           Target
           <span
             className="ml-2 text-[10px] text-muted-foreground"
             aria-hidden="true"
           >
-            {targetZone}
+            {endTimeZone}
           </span>
         </Button>
         <Button
@@ -39,14 +39,14 @@ export function TzToggle({
           size="sm"
           onClick={() => onChange("home")}
           aria-pressed={displayZone === "home"}
-          aria-label={homeZone}
+          aria-label={startTimeZone}
         >
           Home
           <span
             className="ml-2 text-[10px] text-muted-foreground"
             aria-hidden="true"
           >
-            {homeZone}
+            {startTimeZone}
           </span>
         </Button>
       </div>

@@ -233,8 +233,8 @@ export function PlanEditor() {
         <div className="flex-1 space-y-4">
           <TzToggle
             displayZone={displayZone}
-            homeZone={plan.params.homeZone}
-            targetZone={plan.params.targetZone}
+            startTimeZone={plan.params.startTimeZone}
+            endTimeZone={plan.params.endTimeZone}
             onChange={planActions.setDisplayZone}
           />
 
