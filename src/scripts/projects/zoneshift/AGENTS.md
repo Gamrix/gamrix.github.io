@@ -1,1 +1,1 @@
-./src/components/projects/zoneshift/AGENTS.md
+../../../components/projects/zoneshift/AGENTS.md
