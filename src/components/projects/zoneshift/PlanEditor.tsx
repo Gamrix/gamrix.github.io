@@ -55,21 +55,21 @@ export function PlanEditor() {
   const totalDeltaHours = computed.meta.totalDeltaHours
     .toFixed(1)
     .replace(/\.0$/, "");
-  
+
   const getSleepLabel = (entry: typeof computed.wakeSchedule[number] | undefined): string => {
     if (!entry) return "--";
     const allEvents = computed.displayDays.flatMap(d => d.events);
-    const sleepEvent = allEvents.find(e => 
+    const sleepEvent = allEvents.find(e =>
       e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
     );
-    const wakeEvent = allEvents.find(e => 
+    const wakeEvent = allEvents.find(e =>
       e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
     );
     if (!sleepEvent || !wakeEvent) return "--";
     const weekday = wakeEvent.startZoned.toPlainDate().toLocaleString("en-US", { weekday: "short" });
-    const sleepTime = sleepEvent.startZoned.toPlainTime().toString({ 
-      smallestUnit: "minute", 
-      fractionalSecondDigits: 0 
+    const sleepTime = sleepEvent.startZoned.toPlainTime().toString({
+      smallestUnit: "minute",
+      fractionalSecondDigits: 0
     });
     return `${weekday} @ ${sleepTime}`;
   };
@@ -209,7 +209,7 @@ export function PlanEditor() {
           <div>
             <dt className="uppercase tracking-[0.16em]">Shift strategy</dt>
             <dd className="text-lg font-medium text-foreground">
-              {computed.meta.direction}
+              {totalDeltaHours > 0 ? "later" : totalDeltaHours < 0 ? "earlier" : "none"}
             </dd>
           </div>
           <div>
@@ -278,6 +278,7 @@ export function PlanEditor() {
             />
           ) : viewMode === "mini" ? (
             <MiniCalendarView
+              plan={plan}
               computed={computed}
               displayZoneId={displayZoneId}
               onEditEvent={planActions.setActiveEvent}

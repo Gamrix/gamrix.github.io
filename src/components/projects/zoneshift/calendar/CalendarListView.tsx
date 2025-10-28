@@ -34,6 +34,7 @@ type CalendarEvent = {
   title: string;
   start: Temporal.ZonedDateTime;
   end?: Temporal.ZonedDateTime;
+  splitFrom?: string;
 };
 
 type CalendarAnchor = {
@@ -59,7 +60,7 @@ export function CalendarListView({
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, CalendarEvent[]>();
-    computed.projectedEvents.forEach((event) => {
+    computed.manualEvents.forEach((event) => {
       try {
         const start = event.startZoned.withTimeZone(displayZoneId);
         const end = event.endZoned
@@ -67,7 +68,7 @@ export function CalendarListView({
           : undefined;
         const key = start.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
-        bucket.push({ id: event.id, title: event.title, start, end });
+        bucket.push({ id: event.id, title: event.title, start, end, splitFrom: event.splitFrom });
         mapping.set(key, bucket);
       } catch (error) {
         console.error(
@@ -83,13 +84,13 @@ export function CalendarListView({
     }
 
     return mapping;
-  }, [computed.projectedEvents, displayZoneId]);
+  }, [computed.manualEvents, displayZoneId]);
 
   const anchorsByDay = useMemo(() => {
     const mapping = new Map<string, CalendarAnchor[]>();
-    computed.projectedAnchors.forEach((anchor) => {
-      try {
-        const zoned = anchor.zonedDateTime.withTimeZone(displayZoneId);
+    plan.anchors.forEach((anchor) => {
+      try{
+        const zoned = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
         const key = zoned.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
         bucket.push({
@@ -113,7 +114,7 @@ export function CalendarListView({
     }
 
     return mapping;
-  }, [computed.projectedAnchors, displayZoneId, editableAnchorIds]);
+  }, [plan.anchors, displayZoneId, editableAnchorIds]);
 
   const [composer, setComposer] = useState<
     | null
@@ -267,18 +268,18 @@ export function CalendarListView({
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {computed.wakeSchedule.map((entry, index) => {
         const allEvents = computed.displayDays.flatMap(d => d.events);
-        const wakeEvent = allEvents.find(e => 
+        const wakeEvent = allEvents.find(e =>
           e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
         );
-        const sleepEvent = allEvents.find(e => 
+        const sleepEvent = allEvents.find(e =>
           e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
         );
-        const brightEvent = allEvents.find(e => 
+        const brightEvent = allEvents.find(e =>
           e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
         );
-        
+
         if (!wakeEvent || !sleepEvent || !brightEvent) return null;
-        
+
         const wakeDate = wakeEvent.startZoned.toPlainDate();
         const dayKey = wakeDate.toString();
         const events = eventsByDay.get(dayKey) ?? [];
@@ -309,9 +310,9 @@ export function CalendarListView({
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Wake</dt>
                 <dd className="font-medium text-foreground">
-                  {wakeEvent.startZoned.toPlainTime().toString({ 
-                    smallestUnit: "minute", 
-                    fractionalSecondDigits: 0 
+                  {wakeEvent.startZoned.toPlainTime().toString({
+                    smallestUnit: "minute",
+                    fractionalSecondDigits: 0
                   })}
                 </dd>
               </div>
@@ -470,7 +471,7 @@ export function CalendarListView({
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start text-left"
-                      onClick={() => onEditEvent(event.id)}
+                      onClick={() => onEditEvent(event.splitFrom ?? event.id)}
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground">

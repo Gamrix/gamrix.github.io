@@ -97,13 +97,8 @@ export type ComputedView = {
   wakeSchedule: WakeScheduleEntry[];
   displayDays: DisplayDay[];
   manualEvents: DisplayEvent[];
-  days: DayComputed[]; // TEMP: Legacy compatibility
-  projectedEvents: DisplayEvent[]; // TEMP: Legacy compatibility (alias for manualEvents)
-  projectedAnchors: Array<WakeAnchor & { zonedDateTime: Temporal.ZonedDateTime }>; // TEMP: Legacy compatibility
   meta: {
     totalDeltaHours: number;
-    direction: ShiftDirection; // TEMP: Legacy compatibility
-    perDayShifts: number[]; // TEMP: Legacy compatibility
   };
 };
 
@@ -148,74 +143,6 @@ export function projectInstant(iso: string, zone: ZoneId) {
   return toRoundedZonedDateTime(iso, zone, zone).toString({
     smallestUnit: "minute",
     fractionalSecondDigits: 0,
-  });
-}
-
-// TEMPORARY: Legacy compatibility layer for old UI components
-export type DayComputed = {
-  wakeInstant: Temporal.Instant;
-  wakeZoned: Temporal.ZonedDateTime;
-  wakeDisplayDate: Temporal.PlainDate;
-  changeThisDayHours: number;
-  sleepStartLocal: string;
-  sleepStartZoned: Temporal.ZonedDateTime;
-  wakeTimeLocal: string;
-  brightEndZoned: Temporal.ZonedDateTime;
-  anchors: Array<{
-    id: string;
-    kind: "wake";
-    note?: string;
-    instant: Temporal.Instant;
-    editable: boolean;
-  }>;
-};
-
-export function getLegacyDaysView(computed: ComputedView): DayComputed[] {
-  return computed.wakeSchedule.map((entry, index) => {
-    const allEvents = computed.displayDays.flatMap((d) => d.events);
-
-    // Find events by ID or by splitFrom
-    const wakeEvent = allEvents.find(
-      (e) => e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
-    );
-    const sleepEvent = allEvents.find(
-      (e) => e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
-    );
-    const brightEvent = allEvents.find(
-      (e) => e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
-    );
-
-    if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) {
-      throw new Error(`Event not found in display days: wake=${!!wakeEvent}, sleep=${!!sleepEvent}, bright=${!!brightEvent}`);
-    }
-
-    const anchors = entry.anchor
-      ? [
-          {
-            id: entry.anchor.id,
-            kind: "wake" as const,
-            note: entry.anchor.note,
-            instant: Temporal.Instant.from(entry.anchor.instant),
-            editable: !entry.anchor.id.startsWith("__auto"),
-          },
-        ]
-      : [];
-
-    return {
-      wakeInstant: entry.wakeEvent.startInstant,
-      wakeZoned: wakeEvent.startZoned,
-      wakeDisplayDate: wakeEvent.startZoned.toPlainDate(),
-      changeThisDayHours: entry.shiftFromPreviousWakeHours,
-      sleepStartLocal: sleepEvent.startZoned
-        .toPlainTime()
-        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-      sleepStartZoned: sleepEvent.startZoned,
-      wakeTimeLocal: wakeEvent.startZoned
-        .toPlainTime()
-        .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-      brightEndZoned: brightEvent.endZoned!,
-      anchors,
-    };
   });
 }
 
@@ -394,26 +321,14 @@ export function computePlan(core: CorePlan): ComputedView {
   // Build display days
   const displayDays = buildDisplayDays(allDisplayEvents, displayZone);
 
-  const result: ComputedView = {
+  return {
     wakeSchedule: schedule,
     displayDays,
     manualEvents,
-    days: [], // Filled below
-    projectedEvents: manualEvents,
-    projectedAnchors: anchors.map((a) => ({
-      ...a,
-      zonedDateTime: Temporal.Instant.from(a.instant).toZonedDateTimeISO(displayZone),
-    })),
     meta: {
       totalDeltaHours: context.totalDeltaHours,
-      direction: context.totalDeltaHours >= 0 ? "later" : "earlier",
-      perDayShifts: schedule.map((s) => s.shiftFromPreviousWakeHours),
     },
   };
-
-  result.days = getLegacyDaysView(result);
-
-  return result;
 }
 
 function projectScheduleEventToDisplay(

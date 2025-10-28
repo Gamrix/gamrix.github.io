@@ -62,7 +62,7 @@ export function ScheduleTable({
   });
   const [composerError, setComposerError] = useState<string | null>(null);
 
-  if (computed.days.length === 0) {
+  if (computed.wakeSchedule.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         Schedule data becomes available once you provide core plan details.
@@ -75,10 +75,10 @@ export function ScheduleTable({
     setComposerError(null);
   };
 
-  const openEventComposer = (day: ComputedView["days"][number]) => {
-    const dayKey = day.wakeDisplayDate.toString();
-    const startDisplay = day.wakeZoned.withTimeZone(displayZoneId);
-    const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
+  const openEventComposer = (wakeDate: Temporal.PlainDate, wakeZoned: Temporal.ZonedDateTime, brightEndZoned: Temporal.ZonedDateTime) => {
+    const dayKey = wakeDate.toString();
+    const startDisplay = wakeZoned.withTimeZone(displayZoneId);
+    const endDisplay = brightEndZoned.withTimeZone(displayZoneId);
     setEventDraft({
       title: "",
       start: startDisplay
@@ -92,10 +92,10 @@ export function ScheduleTable({
     setComposerError(null);
   };
 
-  const openWakeComposer = (day: ComputedView["days"][number]) => {
-    const dayKey = day.wakeDisplayDate.toString();
+  const openWakeComposer = (wakeDate: Temporal.PlainDate, wakeTimeLocal: string) => {
+    const dayKey = wakeDate.toString();
     setWakeDraft({
-      time: day.wakeTimeLocal,
+      time: wakeTimeLocal,
       note: "",
     });
     setComposer({ type: "wake", dayKey });
@@ -111,15 +111,8 @@ export function ScheduleTable({
       closeComposer();
       return;
     }
-    const day = computed.days.find(
-      (item) => item.wakeDisplayDate.toString() === composer.dayKey
-    );
-    if (!day) {
-      setComposerError("Unable to locate selected day");
-      return;
-    }
     try {
-      const date = day.wakeDisplayDate;
+      const date = Temporal.PlainDate.from(composer.dayKey);
       const startTime = Temporal.PlainTime.from(eventDraft.start);
       const startZoned = Temporal.ZonedDateTime.from({
         timeZone: displayZoneId,
@@ -166,15 +159,8 @@ export function ScheduleTable({
       closeComposer();
       return;
     }
-    const day = computed.days.find(
-      (item) => item.wakeDisplayDate.toString() === composer.dayKey
-    );
-    if (!day) {
-      setComposerError("Unable to locate selected day");
-      return;
-    }
     try {
-      const date = day.wakeDisplayDate;
+      const date = Temporal.PlainDate.from(composer.dayKey);
       const time = Temporal.PlainTime.from(wakeDraft.time);
       const zoned = Temporal.ZonedDateTime.from({
         timeZone: displayZoneId,
@@ -199,17 +185,27 @@ export function ScheduleTable({
     }
   };
 
-  const composerDay = composer
-    ? computed.days.find(
-        (day) => day.wakeDisplayDate.toString() === composer.dayKey
-      )
-    : null;
-  const composerLabel = composerDay
-    ? composerDay.wakeDisplayDate.toLocaleString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
+  const composerScheduleEntry = composer
+    ? computed.wakeSchedule.find((entry) => {
+        const allEvents = computed.displayDays.flatMap(d => d.events);
+        const wakeEvent = allEvents.find(e =>
+          e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+        );
+        return wakeEvent?.startZoned.toPlainDate().toString() === composer.dayKey;
       })
+    : null;
+  const composerLabel = composerScheduleEntry
+    ? (() => {
+        const allEvents = computed.displayDays.flatMap(d => d.events);
+        const wakeEvent = allEvents.find(e =>
+          e.id === composerScheduleEntry.wakeEvent.id || e.splitFrom === composerScheduleEntry.wakeEvent.id
+        );
+        return wakeEvent?.startZoned.toPlainDate().toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+      })()
     : null;
 
   return (
@@ -241,17 +237,37 @@ export function ScheduleTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-border/70">
-          {computed.days.map((day) => {
-            const { dateLabel, weekday } = formatDayLabel(day.wakeDisplayDate);
+          {computed.wakeSchedule.map((entry) => {
+            const allEvents = computed.displayDays.flatMap(d => d.events);
+            const wakeEvent = allEvents.find(e =>
+              e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+            );
+            const sleepEvent = allEvents.find(e =>
+              e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+            );
+            const brightEvent = allEvents.find(e =>
+              e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+            );
+
+            if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) return null;
+
+            const wakeDate = wakeEvent.startZoned.toPlainDate();
+            const { dateLabel, weekday } = formatDayLabel(wakeDate);
+            const wakeTimeLocal = wakeEvent.startZoned.toPlainTime().toString({
+              smallestUnit: "minute",
+              fractionalSecondDigits: 0
+            });
+            const anchor = entry.anchor;
+
             return (
-              <tr key={day.wakeInstant.toString()} className="hover:bg-muted/20">
+              <tr key={entry.wakeEvent.startInstant.toString()} className="hover:bg-muted/20">
                 <td className="px-6 py-4 align-middle">
                   <div className="font-medium text-foreground">{dateLabel}</div>
                   <div className="text-xs text-muted-foreground">{weekday}</div>
-                  {day.anchors.length > 0 && (
+                  {anchor && (
                     <div className="mt-2 space-y-1">
-                      {day.anchors.map((anchor) => {
-                        const anchorTime = anchor.instant
+                      {(() => {
+                        const anchorTime = Temporal.Instant.from(anchor.instant)
                           .toZonedDateTimeISO(displayZoneId)
                           .toPlainTime()
                           .toString({
@@ -261,9 +277,10 @@ export function ScheduleTable({
                         const label = `Wake time @ ${anchorTime}`;
                         const badgeClass =
                           "inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+                        const editable = !anchor.id.startsWith("__auto");
 
                         const anchorBadge =
-                          anchor.editable && onEditAnchor ? (
+                          editable && onEditAnchor ? (
                             <button
                               type="button"
                               onClick={() => onEditAnchor(anchor.id)}
@@ -284,7 +301,7 @@ export function ScheduleTable({
                             {anchor.note ? <span>{anchor.note}</span> : null}
                           </div>
                         );
-                      })}
+                      })()}
                     </div>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -293,7 +310,7 @@ export function ScheduleTable({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => openWakeComposer(day)}
+                        onClick={() => openWakeComposer(wakeDate, wakeTimeLocal)}
                       >
                         Add wake anchor
                       </Button>
@@ -303,7 +320,7 @@ export function ScheduleTable({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => openEventComposer(day)}
+                        onClick={() => openEventComposer(wakeDate, wakeEvent.startZoned, brightEvent.endZoned)}
                       >
                         Plan event
                       </Button>
@@ -311,20 +328,23 @@ export function ScheduleTable({
                   </div>
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm text-muted-foreground">
-                  {formatChange(day.changeThisDayHours)}
+                  {formatChange(entry.shiftFromPreviousWakeHours)}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {day.sleepStartLocal}
+                  {sleepEvent.startZoned.toPlainTime().toString({
+                    smallestUnit: "minute",
+                    fractionalSecondDigits: 0
+                  })}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {day.wakeTimeLocal}
-                  {rangeDaySuffix(day.sleepStartZoned, day.wakeZoned)}
+                  {wakeTimeLocal}
+                  {rangeDaySuffix(sleepEvent.startZoned, wakeEvent.startZoned)}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {day.wakeTimeLocal}
+                  {wakeTimeLocal}
                 </td>
                 <td className="px-6 py-4 align-middle font-mono text-sm">
-                  {formatRangeLabel(day.wakeZoned, day.brightEndZoned)}
+                  {formatRangeLabel(wakeEvent.startZoned, brightEvent.endZoned)}
                 </td>
               </tr>
             );

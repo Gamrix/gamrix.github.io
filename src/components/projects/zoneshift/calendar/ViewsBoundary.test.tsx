@@ -69,6 +69,7 @@ describe("Zoneshift day-boundary handling", () => {
 
     render(
       <MiniCalendarView
+        plan={boundaryPlan}
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
@@ -87,6 +88,7 @@ describe("Zoneshift day-boundary handling", () => {
   it("opens the event composer when clicking an empty slot", async () => {
     render(
       <MiniCalendarView
+        plan={boundaryPlan}
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
@@ -131,6 +133,7 @@ describe("Zoneshift day-boundary handling", () => {
 
     render(
       <MiniCalendarView
+        plan={boundaryPlan}
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
@@ -177,6 +180,7 @@ describe("Zoneshift day-boundary handling", () => {
 
     render(
       <MiniCalendarView
+        plan={boundaryPlan}
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
@@ -263,6 +267,7 @@ describe("Zoneshift day-boundary handling", () => {
   it("opens the composer when tapping an empty slot with touch", async () => {
     render(
       <MiniCalendarView
+        plan={boundaryPlan}
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}
@@ -305,6 +310,7 @@ describe("Zoneshift day-boundary handling", () => {
   it("marks touch-interactive elements with explicit touch-action rules", () => {
     render(
       <MiniCalendarView
+        plan={boundaryPlan}
         computed={computedPlan}
         displayZoneId={boundaryPlan.params.endTimeZone}
         onEditEvent={vi.fn()}

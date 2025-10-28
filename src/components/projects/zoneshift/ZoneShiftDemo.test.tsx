@@ -9,14 +9,17 @@ describe("ZoneShiftDemo", () => {
     const user = userEvent.setup();
     render(<ZoneShiftDemo />);
 
-    const endZoneLabels = await screen.findAllByText(sampleCorePlan.params.endTimeZone);
-    expect(endZoneLabels.length).toBeGreaterThan(0);
+    // Wait for component to render and verify default timezone is displayed
+    const endZoneButton = await screen.findByRole("button", { name: sampleCorePlan.params.endTimeZone });
+    expect(endZoneButton).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "List View" })).toHaveAttribute("aria-pressed", "true");
 
-    await user.click(screen.getByRole("button", { name: sampleCorePlan.params.startTimeZone }));
+    // Click to switch to home timezone
+    const startZoneButton = screen.getByRole("button", { name: sampleCorePlan.params.startTimeZone });
+    await user.click(startZoneButton);
 
-    const startZoneLabels = await screen.findAllByText(sampleCorePlan.params.startTimeZone);
-    expect(startZoneLabels.length).toBeGreaterThan(0);
+    // Verify the home timezone button is now pressed
+    expect(startZoneButton).toHaveAttribute("aria-pressed", "true");
   });
 
   it("allows updating wake times via the editor", async () => {

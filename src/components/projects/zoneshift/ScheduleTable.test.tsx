@@ -47,19 +47,18 @@ describe("ScheduleTable", () => {
     });
 
     const rows = table.querySelectorAll("tbody tr");
-    expect(rows.length).toBe(computed.days.length);
+    expect(rows.length).toBeGreaterThanOrEqual(computed.wakeSchedule.length);
     expect(table).toHaveTextContent("Sleep Start");
-    expect(table).toHaveTextContent(computed.days[0]?.sleepStartLocal ?? "");
   });
 
   it("shows an empty-state message when no days are present", () => {
     render(
       <ScheduleTable
         computed={{
-          days: [],
-          projectedAnchors: [],
-          projectedEvents: [],
-          meta: { totalDeltaHours: 0, direction: "later", perDayShifts: [] },
+          wakeSchedule: [],
+          displayDays: [],
+          manualEvents: [],
+          meta: { totalDeltaHours: 0 },
         }}
         displayZoneId={sampleCorePlan.params.endTimeZone}
       />

@@ -14,7 +14,7 @@ import type {
 import { Temporal } from "@js-temporal/polyfill";
 
 import { Button } from "@/components/ui/button";
-import type { ComputedView } from "@/scripts/projects/zoneshift/model";
+import type { ComputedView, CorePlan } from "@/scripts/projects/zoneshift/model";
 import {
   MINUTES_IN_DAY,
   formatRangeLabel,
@@ -49,6 +49,7 @@ const timeStringToMinutes = (value: string) => {
 };
 
 type MiniCalendarViewProps = {
+  plan: CorePlan;
   computed: ComputedView;
   displayZoneId: string;
   onEditEvent?: (eventId: string) => void;
@@ -230,6 +231,7 @@ const releasePointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
 };
 
 export function MiniCalendarView({
+  plan,
   computed,
   displayZoneId,
   onEditEvent,
@@ -355,15 +357,8 @@ export function MiniCalendarView({
         closeComposer();
         return;
       }
-      const day = computed.days.find(
-        (item) => item.wakeDisplayDate.toString() === composer.dayKey
-      );
-      if (!day) {
-        setComposerError("Unable to locate selected day");
-        return;
-      }
       try {
-        const date = day.wakeDisplayDate;
+        const date = Temporal.PlainDate.from(composer.dayKey);
         const startTime = Temporal.PlainTime.from(eventDraft.start);
         const startZoned = Temporal.ZonedDateTime.from({
           timeZone: displayZoneId,
@@ -403,7 +398,6 @@ export function MiniCalendarView({
     [
       closeComposer,
       composer,
-      computed.days,
       displayZoneId,
       eventDraft,
       onAddEvent,
@@ -420,15 +414,8 @@ export function MiniCalendarView({
         closeComposer();
         return;
       }
-      const day = computed.days.find(
-        (item) => item.wakeDisplayDate.toString() === composer.dayKey
-      );
-      if (!day) {
-        setComposerError("Unable to locate selected day");
-        return;
-      }
       try {
-        const date = day.wakeDisplayDate;
+        const date = Temporal.PlainDate.from(composer.dayKey);
         const time = Temporal.PlainTime.from(wakeDraft.time);
         const zoned = Temporal.ZonedDateTime.from({
           timeZone: displayZoneId,
@@ -455,7 +442,6 @@ export function MiniCalendarView({
     [
       closeComposer,
       composer,
-      computed.days,
       displayZoneId,
       onAddAnchor,
       wakeDraft,
@@ -464,7 +450,10 @@ export function MiniCalendarView({
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, MiniEvent[]>();
-    computed.projectedEvents.forEach((event) => {
+    if (!computed?.manualEvents) {
+      return mapping;
+    }
+    computed.manualEvents.forEach((event) => {
       try {
         const start = event.startZoned.withTimeZone(displayZoneId);
         const end = event.endZoned
@@ -496,16 +485,19 @@ export function MiniCalendarView({
     }
 
     return mapping;
-  }, [computed.projectedEvents, displayZoneId]);
+  }, [computed.manualEvents, displayZoneId]);
 
   const anchorMetadata = useMemo(() => {
     const mapping = new Map<
       string,
       { zoned: Temporal.ZonedDateTime; zone: string; note?: string }
     >();
-    computed.projectedAnchors.forEach((anchor) => {
+    if (!plan?.anchors) {
+      return mapping;
+    }
+    plan.anchors.forEach((anchor) => {
       try {
-        const zoned = anchor.zonedDateTime.withTimeZone(displayZoneId);
+        const zoned = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
         mapping.set(anchor.id, {
           zoned,
           zone: anchor.zone,
@@ -520,18 +512,35 @@ export function MiniCalendarView({
       }
     });
     return mapping;
-  }, [computed.projectedAnchors, displayZoneId]);
+  }, [plan?.anchors, displayZoneId]);
 
   const timelineByDay = useMemo(() => {
     const toMinutes = (value: Temporal.ZonedDateTime) => {
       return minutesSinceStartOfDay(value.withTimeZone(displayZoneId));
     };
 
-    return computed.days.map((day) => {
-      const sleepStart = toMinutes(day.sleepStartZoned);
-      const sleepEnd = toMinutes(day.wakeZoned);
-      const brightStart = toMinutes(day.wakeZoned);
-      const brightEnd = toMinutes(day.brightEndZoned);
+    const schedule = computed.wakeSchedule ?? [];
+    return schedule.map((entry) => {
+      const displayDays = computed.displayDays ?? [];
+      const allEvents = displayDays.flatMap(d => d.events ?? []);
+      const wakeEvent = allEvents.find(e =>
+        e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+      );
+      const sleepEvent = allEvents.find(e =>
+        e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+      );
+      const brightEvent = allEvents.find(e =>
+        e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+      );
+
+      if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) {
+        return null;
+      }
+
+      const sleepStart = toMinutes(sleepEvent.startZoned);
+      const sleepEnd = toMinutes(wakeEvent.startZoned);
+      const brightStart = toMinutes(wakeEvent.startZoned);
+      const brightEnd = toMinutes(brightEvent.endZoned);
 
       let segments: TimeSegment[] = [
         { start: 0, end: MINUTES_IN_DAY, type: "other" },
@@ -545,9 +554,27 @@ export function MiniCalendarView({
         segments = applySegment(segments, brightStart, brightEnd, "bright");
       }
 
-      const key = day.wakeDisplayDate.toString();
+      const wakeDate = wakeEvent.startZoned.toPlainDate();
+      const key = wakeDate.toString();
       const events = eventsByDay.get(key) ?? [];
-      const wakeEvents: MiniEvent[] = day.anchors
+      const anchor = entry.anchor;
+      const wakeEvents: MiniEvent[] = anchor ? [{
+        id: `wake-${anchor.id}`,
+        title: anchor.note?.trim() || "Wake time",
+        start: wakeEvent.startZoned,
+        summary: (() => {
+          const timeLabel = wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+          const trimmedNote = anchor.note?.trim() ?? "";
+          return trimmedNote.length > 0 ? `${timeLabel} · ${trimmedNote}` : timeLabel;
+        })(),
+        zone: wakeEvent.originalZone || wakeEvent.startZoned.timeZoneId,
+        kind: "wake" as const,
+        anchorId: anchor.id,
+        editable: !anchor.id.startsWith("__auto"),
+        note: anchor.note,
+        displayTime: wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+      }] : [];
+      /*const wakeEvents: MiniEvent[] = day.anchors
         .filter((anchor) => anchor.kind === "wake")
         .map((anchor) => {
           const metadata = anchorMetadata.get(anchor.id);
@@ -576,12 +603,31 @@ export function MiniCalendarView({
             note: trimmedNote.length > 0 ? trimmedNote : undefined,
             displayTime: timeLabel,
           } satisfies MiniEvent;
-        });
+        });*/
       const combined = [...events, ...wakeEvents];
       combined.sort((a, b) => Temporal.ZonedDateTime.compare(a.start, b.start));
+
+      const day = {
+        wakeInstant: entry.wakeEvent.startInstant,
+        wakeZoned: wakeEvent.startZoned,
+        wakeDisplayDate: wakeDate,
+        changeThisDayHours: entry.shiftFromPreviousWakeHours,
+        sleepStartLocal: sleepEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        sleepStartZoned: sleepEvent.startZoned,
+        wakeTimeLocal: wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        brightEndZoned: brightEvent.endZoned,
+        anchors: anchor ? [{
+          id: anchor.id,
+          kind: "wake" as const,
+          note: anchor.note,
+          instant: Temporal.Instant.from(anchor.instant),
+          editable: !anchor.id.startsWith("__auto"),
+        }] : [],
+      };
+
       return { day, segments, events: combined };
-    });
-  }, [anchorMetadata, computed.days, displayZoneId, eventsByDay]);
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [anchorMetadata, computed.wakeSchedule, computed.displayDays, displayZoneId, eventsByDay]);
 
   const hourMarkers = useMemo(() => {
     const markers: number[] = [];
@@ -1007,12 +1053,12 @@ const handleButtonClick = useCallback(
         )
       : DAY_COLUMN_WIDTH_PX;
   const composerDay = composer
-    ? computed.days.find(
-        (day) => day.wakeDisplayDate.toString() === composer.dayKey
+    ? timelineByDay.find(
+        (item) => item.day.wakeDisplayDate.toString() === composer.dayKey
       )
     : null;
   const composerLabel = composerDay
-    ? composerDay.wakeDisplayDate.toLocaleString("en-US", {
+    ? composerDay.day.wakeDisplayDate.toLocaleString("en-US", {
         weekday: "short",
         month: "short",
         day: "numeric",

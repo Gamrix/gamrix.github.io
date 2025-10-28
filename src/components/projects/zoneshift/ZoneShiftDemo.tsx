@@ -40,7 +40,7 @@ const ProjectedEvents = ({
 }: {
   computed: ReturnType<typeof computePlan>;
 }) => {
-  if (computed.projectedEvents.length === 0) {
+  if (computed.manualEvents.length === 0) {
     return null;
   }
 
@@ -50,7 +50,7 @@ const ProjectedEvents = ({
         Wake Time Activities
       </h3>
       <ul className="grid gap-3 md:grid-cols-2">
-        {computed.projectedEvents.map((event) => (
+        {computed.manualEvents.map((event) => (
           <li
             key={event.id}
             className="flex flex-col gap-1 rounded-lg border bg-card/50 p-4 text-sm"
@@ -412,8 +412,8 @@ function ZoneShiftDemoComponent() {
                   {(["home", "target"] as const).map((option) => {
                     const zoneId =
                       option === "home"
-                        ? planState.params.homeZone
-                        : planState.params.targetZone;
+                        ? planState.params.startTimeZone
+                        : planState.params.endTimeZone;
                     return (
                       <Button
                         key={option}
@@ -486,6 +486,7 @@ function ZoneShiftDemoComponent() {
         />
       ) : viewMode === "mini" ? (
         <MiniCalendarView
+          plan={planState}
           computed={computed}
           displayZoneId={displayZoneId}
           onEditEvent={() => undefined}

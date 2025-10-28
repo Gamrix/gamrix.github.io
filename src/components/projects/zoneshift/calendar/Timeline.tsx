@@ -189,16 +189,28 @@ export function Timeline({
       string,
       { start: Temporal.ZonedDateTime; end: Temporal.ZonedDateTime }
     >();
-    computed.days.forEach((day) => {
-      const sleepStart = day.sleepStartZoned.withTimeZone(displayZoneId);
-      const sleepEnd = day.wakeZoned.withTimeZone(displayZoneId);
-      const entry = { start: sleepStart, end: sleepEnd };
-      daySleepWindows.set(day.wakeDisplayDate.toString(), entry);
-      daySleepWindows.set(sleepStart.toPlainDate().toString(), entry);
-      daySleepWindows.set(sleepEnd.toPlainDate().toString(), entry);
+
+    computed.wakeSchedule.forEach((entry) => {
+      const allEvents = computed.displayDays.flatMap(d => d.events);
+      const sleepEvent = allEvents.find(e =>
+        e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+      );
+      const wakeEvent = allEvents.find(e =>
+        e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+      );
+
+      if (!sleepEvent || !wakeEvent) return;
+
+      const sleepStart = sleepEvent.startZoned.withTimeZone(displayZoneId);
+      const sleepEnd = wakeEvent.startZoned.withTimeZone(displayZoneId);
+      const windowEntry = { start: sleepStart, end: sleepEnd };
+      const wakeDate = wakeEvent.startZoned.toPlainDate().toString();
+      daySleepWindows.set(wakeDate, windowEntry);
+      daySleepWindows.set(sleepStart.toPlainDate().toString(), windowEntry);
+      daySleepWindows.set(sleepEnd.toPlainDate().toString(), windowEntry);
     });
 
-    computed.projectedEvents.forEach((event) => {
+    computed.manualEvents.forEach((event) => {
       try {
         const start = event.startZoned.withTimeZone(displayZoneId);
         const end = event.endZoned
@@ -231,24 +243,18 @@ export function Timeline({
       }
     });
     return mapping;
-  }, [computed.days, computed.projectedEvents, displayZoneId]);
+  }, [computed.wakeSchedule, computed.displayDays, computed.manualEvents, displayZoneId]);
 
   const editableAnchors = useMemo(() => {
-    const anchorIds = new Set(plan.anchors.map((anchor) => anchor.id));
-    return computed.projectedAnchors
-      .filter((anchor) => anchorIds.has(anchor.id))
+    return plan.anchors
       .map<TimelineAnchor | null>((anchor) => {
         try {
-          const zoned = anchor.zonedDateTime.withTimeZone(displayZoneId);
-          const original = plan.anchors.find((item) => item.id === anchor.id);
-          if (!original) {
-            return null;
-          }
+          const zonedDateTime = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
           return {
             id: anchor.id,
-            note: original.note,
-            zone: original.zone,
-            zoned,
+            note: anchor.note,
+            zone: anchor.zone,
+            zoned: zonedDateTime,
             editable: true,
           } satisfies TimelineAnchor;
         } catch (error) {
@@ -261,7 +267,7 @@ export function Timeline({
         }
       })
       .filter((value): value is TimelineAnchor => value !== null);
-  }, [computed.projectedAnchors, displayZoneId, plan.anchors]);
+  }, [displayZoneId, plan.anchors]);
 
   const anchorsByDay = useMemo(() => {
     const mapping = new Map<string, TimelineAnchor[]>();
@@ -275,8 +281,8 @@ export function Timeline({
   }, [editableAnchors]);
 
   const calendarDays = useMemo(
-    () => computed.days.map((day) => day.wakeInstant.toString()),
-    [computed.days]
+    () => computed.wakeSchedule.map((entry) => entry.wakeEvent.startInstant.toString()),
+    [computed.wakeSchedule]
   );
 
   const roundDelta = useCallback(
@@ -618,26 +624,41 @@ export function Timeline({
       <div className="overflow-x-auto">
         <div className="flex min-w-full gap-4">
           {calendarDays.map((wakeInstantIso) => {
-            const day = computed.days.find(
-              (item) => item.wakeInstant.toString() === wakeInstantIso
+            const entry = computed.wakeSchedule.find(
+              (item) => item.wakeEvent.startInstant.toString() === wakeInstantIso
             );
-            if (!day) {
+            if (!entry) {
               return null;
             }
-            const dayKey = day.wakeDisplayDate.toString();
+
+            const allEvents = computed.displayDays.flatMap(d => d.events);
+            const wakeEvent = allEvents.find(e =>
+              e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+            );
+            const sleepEvent = allEvents.find(e =>
+              e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+            );
+            const brightEvent = allEvents.find(e =>
+              e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+            );
+
+            if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) return null;
+
+            const wakeDate = wakeEvent.startZoned.toPlainDate();
+            const dayKey = wakeDate.toString();
             const isoDate = dayKey;
             const events = eventsByDay.get(dayKey) ?? [];
             const anchors = anchorsByDay.get(dayKey) ?? [];
-            const dateObj = day.wakeDisplayDate;
+            const dateObj = wakeDate;
             const weekday = dateObj.toLocaleString("en-US", {
               weekday: "short",
             });
 
             let sleepSegment: { top: number; height: number } | null = null;
-            const sleepStartDisplay = day.sleepStartZoned.withTimeZone(
+            const sleepStartDisplay = sleepEvent.startZoned.withTimeZone(
               displayZoneId
             );
-            const sleepEndDisplay = day.wakeZoned.withTimeZone(displayZoneId);
+            const sleepEndDisplay = wakeEvent.startZoned.withTimeZone(displayZoneId);
             const sleepStartMinutes = clampMinutes(
               minutesSinceStartOfDay(sleepStartDisplay)
             );
@@ -659,10 +680,10 @@ export function Timeline({
             }
 
             let brightSegment: { top: number; height: number } | null = null;
-            const brightStartDisplay = day.wakeZoned.withTimeZone(
+            const brightStartDisplay = brightEvent.startZoned.withTimeZone(
               displayZoneId
             );
-            const brightEndDisplay = day.brightEndZoned.withTimeZone(
+            const brightEndDisplay = brightEvent.endZoned!.withTimeZone(
               displayZoneId
             );
             const brightStartMinutes = clampMinutes(

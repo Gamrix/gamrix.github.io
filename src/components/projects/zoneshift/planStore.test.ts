@@ -175,16 +175,15 @@ describe("planStore", () => {
 
     expect(planStore.getState().plan.anchors.length).toBe(4);
     const computed = computePlan(planStore.getState().plan);
-    const hasNaN = computed.days.some((day) =>
-      Number.isNaN(day.sleepStartZoned.epochMilliseconds)
+    const allEvents = computed.displayDays.flatMap(d => d.events);
+    const sleepEvents = allEvents.filter(e => e.kind === "sleep");
+    const hasNaN = sleepEvents.some((event) =>
+      Number.isNaN(event.startZoned.epochMilliseconds)
     );
     expect(hasNaN).toBe(false);
-    expect(
-      new Set(computed.days.map((day) => day.wakeInstant.toString())).size
-    ).toBe(computed.days.length);
-    const displayDates = computed.days.map((day) =>
-      day.wakeDisplayDate.toString()
-    );
+    const wakeInstants = computed.wakeSchedule.map((entry) => entry.wakeEvent.startInstant.toString());
+    expect(new Set(wakeInstants).size).toBe(wakeInstants.length);
+    const displayDates = computed.displayDays.map((day) => day.date.toString());
     const uniqueDates = new Set(displayDates);
     expect(uniqueDates.size).toBe(displayDates.length); });
 
