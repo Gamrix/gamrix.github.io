@@ -388,6 +388,9 @@ export function computePlan(core: CorePlan): ComputedView {
     return projected;
   }).flatMap((event) => splitEventByDay(event, displayZone));
 
+  // Add manual events to all display events
+  allDisplayEvents.push(...manualEvents);
+
   // Build display days
   const displayDays = buildDisplayDays(allDisplayEvents, displayZone);
 

@@ -32,14 +32,14 @@ export function ScheduleTable({
   displayZoneId,
   onEditAnchor,
 }: ScheduleTableProps) {
-  const hasDays = computed.days.length > 0;
+  const hasSchedule = computed.wakeSchedule.length > 0;
   const [visibleCount, setVisibleCount] = useState(() =>
-    hasDays ? Math.min(7, computed.days.length) : 0
+    hasSchedule ? Math.min(7, computed.wakeSchedule.length) : 0
   );
   const sentinelRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
-    if (!hasDays) {
+    if (!hasSchedule) {
       return undefined;
     }
     const node = sentinelRef.current;
@@ -49,30 +49,30 @@ export function ScheduleTable({
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + 5, computed.days.length));
+          setVisibleCount((prev) => Math.min(prev + 5, computed.wakeSchedule.length));
         }
       });
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [computed.days.length, hasDays]);
+  }, [computed.wakeSchedule.length, hasSchedule]);
 
   useEffect(() => {
-    if (!hasDays) {
+    if (!hasSchedule) {
       setVisibleCount(0);
       return;
     }
     setVisibleCount((prev) =>
-      Math.min(Math.max(prev, 7), computed.days.length)
+      Math.min(Math.max(prev, 7), computed.wakeSchedule.length)
     );
-  }, [computed.days.length, hasDays]);
+  }, [computed.wakeSchedule.length, hasSchedule]);
 
-  const days = useMemo(
-    () => (hasDays ? computed.days.slice(0, visibleCount) : []),
-    [computed.days, visibleCount, hasDays]
+  const schedule = useMemo(
+    () => (hasSchedule ? computed.wakeSchedule.slice(0, visibleCount) : []),
+    [computed.wakeSchedule, visibleCount, hasSchedule]
   );
 
-  if (!hasDays) {
+  if (!hasSchedule) {
     return (
       <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
         Schedule data becomes available once you provide core plan details.
@@ -110,10 +110,26 @@ export function ScheduleTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/70">
-            {days.map((day) => {
-              const { dateLabel, weekday } = formatDayLabel(day.wakeDisplayDate);
+            {schedule.map((entry) => {
+              const allEvents = computed.displayDays.flatMap(d => d.events);
+              const wakeEvent = allEvents.find(e => 
+                e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+              );
+              const sleepEvent = allEvents.find(e => 
+                e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+              );
+              const brightEvent = allEvents.find(e => 
+                e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+              );
+              
+              if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) return null;
+              
+              const wakeDate = wakeEvent.startZoned.toPlainDate();
+              const { dateLabel, weekday } = formatDayLabel(wakeDate);
+              const anchor = entry.anchor;
+              
               return (
-                <tr key={day.wakeInstant.toString()} className="hover:bg-muted/20">
+                <tr key={entry.wakeEvent.startInstant.toString()} className="hover:bg-muted/20">
                   <td className="px-6 py-4 align-middle">
                     <div className="font-medium text-foreground">
                       {dateLabel}
@@ -121,10 +137,10 @@ export function ScheduleTable({
                     <div className="text-xs text-muted-foreground">
                       {weekday}
                     </div>
-                    {day.anchors.length > 0 && (
+                    {anchor && (
                       <div className="mt-2 space-y-1">
-                        {day.anchors.map((anchor) => {
-                          const anchorTime = anchor.instant
+                        {(() => {
+                          const anchorTime = Temporal.Instant.from(anchor.instant)
                             .toZonedDateTimeISO(displayZoneId)
                             .toPlainTime()
                             .toString({
@@ -134,9 +150,9 @@ export function ScheduleTable({
                           const label = `Wake time @ ${anchorTime}`;
                           const badgeClass =
                             "inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
-
+                          const editable = !anchor.id.startsWith("__auto");
                           const anchorBadge =
-                            anchor.editable && onEditAnchor ? (
+                            editable && onEditAnchor ? (
                               <button
                                 type="button"
                                 onClick={() => onEditAnchor(anchor.id)}
@@ -157,25 +173,34 @@ export function ScheduleTable({
                               {anchor.note ? <span>{anchor.note}</span> : null}
                             </div>
                           );
-                        })}
+                        })()}
                       </div>
                     )}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm text-muted-foreground">
-                    {formatChange(day.changeThisDayHours)}
+                    {formatChange(entry.shiftFromPreviousWakeHours)}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
-                    {day.sleepStartLocal}
+                    {sleepEvent.startZoned.toPlainTime().toString({ 
+                      smallestUnit: "minute", 
+                      fractionalSecondDigits: 0 
+                    })}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
-                    {day.wakeTimeLocal}
-                    {rangeDaySuffix(day.sleepStartZoned, day.wakeZoned)}
+                    {wakeEvent.startZoned.toPlainTime().toString({ 
+                      smallestUnit: "minute", 
+                      fractionalSecondDigits: 0 
+                    })}
+                    {rangeDaySuffix(sleepEvent.startZoned, wakeEvent.startZoned)}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
-                    {day.wakeTimeLocal}
+                    {wakeEvent.startZoned.toPlainTime().toString({ 
+                      smallestUnit: "minute", 
+                      fractionalSecondDigits: 0 
+                    })}
                   </td>
                   <td className="px-6 py-4 align-middle font-mono text-sm">
-                    {formatRangeLabel(day.wakeZoned, day.brightEndZoned)}
+                    {formatRangeLabel(wakeEvent.startZoned, brightEvent.endZoned)}
                   </td>
                 </tr>
               );
@@ -185,7 +210,7 @@ export function ScheduleTable({
                 colSpan={6}
                 className="px-6 py-3 text-center text-xs text-muted-foreground"
               >
-                {visibleCount >= computed.days.length
+                {visibleCount >= computed.wakeSchedule.length
                   ? "End of schedule"
                   : "Loading more days…"}
               </td>

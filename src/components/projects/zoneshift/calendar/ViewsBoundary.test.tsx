@@ -78,9 +78,8 @@ describe("Zoneshift day-boundary handling", () => {
       />
     );
 
-    await user.click(
-      screen.getByRole("button", { name: /Overnight Session/i })
-    );
+    const eventButtons = screen.getAllByRole("button", { name: /Overnight Session/i });
+    await user.click(eventButtons[0]);
 
     expect(screen.getAllByText(/\(\+1 day\)/i).length).toBeGreaterThan(0);
   });
@@ -207,9 +206,10 @@ describe("Zoneshift day-boundary handling", () => {
         }) as DOMRect;
     });
 
-    const eventButton = screen.getByRole("button", {
+    const eventButtons = screen.getAllByRole("button", {
       name: /Overnight Session/i,
-    }) as HTMLButtonElement;
+    });
+    const eventButton = eventButtons[0] as HTMLButtonElement;
 
     eventButton.getBoundingClientRect = () =>
       ({
@@ -314,11 +314,11 @@ describe("Zoneshift day-boundary handling", () => {
       />
     );
 
-    const eventButton = screen.getByRole("button", {
+    const eventButtons = screen.getAllByRole("button", {
       name: /Overnight Session/i,
     });
 
-    expect(eventButton.className).toMatch(/touch-none/);
+    expect(eventButtons[0].className).toMatch(/touch-none/);
 
     const interactiveArea = document.querySelector(
       "div.relative.flex-1.w-full.overflow-visible"

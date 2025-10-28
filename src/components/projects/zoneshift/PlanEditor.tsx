@@ -42,7 +42,7 @@ export function PlanEditor() {
 
   const displayZone = plan.prefs?.displayZone ?? "target";
   const displayZoneId =
-    displayZone === "home" ? plan.params.homeZone : plan.params.targetZone;
+    displayZone === "home" ? plan.params.startTimeZone : plan.params.endTimeZone;
   const timeStepMinutes = plan.prefs?.timeStepMinutes ?? 30;
 
   const computed = useMemo(() => computePlan(plan), [plan]);
@@ -55,15 +55,27 @@ export function PlanEditor() {
   const totalDeltaHours = computed.meta.totalDeltaHours
     .toFixed(1)
     .replace(/\.0$/, "");
-  const firstDay = computed.days[0];
-  const lastDay = computed.days[computed.days.length - 1];
+  
+  const getSleepLabel = (entry: typeof computed.wakeSchedule[number] | undefined): string => {
+    if (!entry) return "--";
+    const allEvents = computed.displayDays.flatMap(d => d.events);
+    const sleepEvent = allEvents.find(e => 
+      e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+    );
+    const wakeEvent = allEvents.find(e => 
+      e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+    );
+    if (!sleepEvent || !wakeEvent) return "--";
+    const weekday = wakeEvent.startZoned.toPlainDate().toLocaleString("en-US", { weekday: "short" });
+    const sleepTime = sleepEvent.startZoned.toPlainTime().toString({ 
+      smallestUnit: "minute", 
+      fractionalSecondDigits: 0 
+    });
+    return `${weekday} @ ${sleepTime}`;
+  };
 
-  const firstSleepLabel = firstDay
-    ? `${firstDay.wakeDisplayDate.toLocaleString("en-US", { weekday: "short" })} @ ${firstDay.sleepStartLocal}`
-    : "--";
-  const finalSleepLabel = lastDay
-    ? `${lastDay.wakeDisplayDate.toLocaleString("en-US", { weekday: "short" })} @ ${lastDay.sleepStartLocal}`
-    : "--";
+  const firstSleepLabel = getSleepLabel(computed.wakeSchedule[0]);
+  const finalSleepLabel = getSleepLabel(computed.wakeSchedule[computed.wakeSchedule.length - 1]);
 
   const handleAddEvent = useCallback(
     (payload: {

@@ -171,7 +171,7 @@ export function CalendarListView({
 
   const handleEventSubmit = (
     event: FormEvent<HTMLFormElement>,
-    day: ComputedView["days"][number]
+    wakeDate: Temporal.PlainDate
   ) => {
     event.preventDefault();
     if (!composer || composer.type !== "event") {
@@ -182,7 +182,7 @@ export function CalendarListView({
       return;
     }
     try {
-      const date = day.wakeDisplayDate;
+      const date = wakeDate;
       const startTime = Temporal.PlainTime.from(eventDraft.start);
       const startZoned = Temporal.ZonedDateTime.from({
         timeZone: displayZoneId,
@@ -228,7 +228,7 @@ export function CalendarListView({
 
   const handleWakeSubmit = (
     event: FormEvent<HTMLFormElement>,
-    day: ComputedView["days"][number]
+    wakeDate: Temporal.PlainDate
   ) => {
     event.preventDefault();
     if (!composer || composer.type !== "wake") {
@@ -239,13 +239,12 @@ export function CalendarListView({
       return;
     }
     try {
-      const date = day.wakeDisplayDate;
       const time = Temporal.PlainTime.from(wakeDraft.time);
       const zoned = Temporal.ZonedDateTime.from({
         timeZone: displayZoneId,
-        year: date.year,
-        month: date.month,
-        day: date.day,
+        year: wakeDate.year,
+        month: wakeDate.month,
+        day: wakeDate.day,
         hour: time.hour,
         minute: time.minute,
         second: time.second,
@@ -266,8 +265,21 @@ export function CalendarListView({
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {computed.days.map((day) => {
-        const wakeDate = day.wakeDisplayDate;
+      {computed.wakeSchedule.map((entry, index) => {
+        const allEvents = computed.displayDays.flatMap(d => d.events);
+        const wakeEvent = allEvents.find(e => 
+          e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+        );
+        const sleepEvent = allEvents.find(e => 
+          e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+        );
+        const brightEvent = allEvents.find(e => 
+          e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+        );
+        
+        if (!wakeEvent || !sleepEvent || !brightEvent) return null;
+        
+        const wakeDate = wakeEvent.startZoned.toPlainDate();
         const dayKey = wakeDate.toString();
         const events = eventsByDay.get(dayKey) ?? [];
         const anchors = anchorsByDay.get(dayKey) ?? [];
@@ -279,7 +291,7 @@ export function CalendarListView({
 
         return (
           <article
-            key={day.wakeInstant.toString()}
+            key={entry.wakeEvent.startInstant.toString()}
             className="flex h-full flex-col gap-4 rounded-lg border bg-card/70 p-4 shadow-sm"
           >
             <header className="flex items-baseline justify-between text-sm text-foreground">
@@ -291,19 +303,22 @@ export function CalendarListView({
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Sleep</dt>
                 <dd className="font-medium text-foreground">
-                  {formatRangeLabel(day.sleepStartZoned, day.wakeZoned)}
+                  {formatRangeLabel(sleepEvent.startZoned, wakeEvent.startZoned)}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Wake</dt>
                 <dd className="font-medium text-foreground">
-                  {day.wakeTimeLocal}
+                  {wakeEvent.startZoned.toPlainTime().toString({ 
+                    smallestUnit: "minute", 
+                    fractionalSecondDigits: 0 
+                  })}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="uppercase tracking-[0.16em]">Bright</dt>
                 <dd className="font-medium text-foreground">
-                  {formatRangeLabel(day.wakeZoned, day.brightEndZoned)}
+                  {brightEvent.endZoned ? formatRangeLabel(wakeEvent.startZoned, brightEvent.endZoned) : "--"}
                 </dd>
               </div>
             </dl>
@@ -346,7 +361,7 @@ export function CalendarListView({
               )}
               {composer?.type === "wake" && composer.dayKey === dayKey ? (
                 <form
-                  onSubmit={(event) => handleWakeSubmit(event, day)}
+                  onSubmit={(event) => handleWakeSubmit(event, wakeDate)}
                   className="space-y-2 rounded-lg border border-dashed bg-card/80 p-3 text-xs text-muted-foreground"
                 >
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -471,7 +486,7 @@ export function CalendarListView({
               )}
               {composer?.type === "event" && composer.dayKey === dayKey ? (
                 <form
-                  onSubmit={(event) => handleEventSubmit(event, day)}
+                  onSubmit={(event) => handleEventSubmit(event, wakeDate)}
                   className="space-y-2 rounded-lg border border-dashed bg-card/80 p-3 text-xs text-muted-foreground"
                 >
                   <label className="flex flex-col gap-1">
