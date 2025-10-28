@@ -1,0 +1,1 @@
+./src/components/projects/zoneshift/AGENTS.md
