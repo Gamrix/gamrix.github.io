@@ -30,8 +30,8 @@ const clampMinutesValue = (minutes: number) => {
   if (minutes < 0) {
     return 0;
   }
-  if (minutes >= MINUTES_IN_DAY) {
-    return MINUTES_IN_DAY - 1;
+  if (minutes > MINUTES_IN_DAY - 5) {
+    return MINUTES_IN_DAY - 5;
   }
   return minutes;
 };
@@ -199,7 +199,6 @@ type DragState = {
   startClientX: number;
   startClientY: number;
   hasMoved: boolean;
-  columnRects: ColumnRect[];
   lastApplied: string | null;
   anchorId?: string;
 };
@@ -215,7 +214,7 @@ const setPointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   if (typeof target.setPointerCapture === "function") {
     try {
       target.setPointerCapture(event.pointerId);
-    } catch {}
+    } catch { }
   }
 };
 
@@ -226,7 +225,7 @@ const releasePointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   if (typeof target.releasePointerCapture === "function") {
     try {
       target.releasePointerCapture(event.pointerId);
-    } catch {}
+    } catch { }
   }
 };
 
@@ -653,14 +652,6 @@ export function MiniCalendarView({
         event.clientX - (rect.left + rect.width / 2);
       const pointerOffsetY =
         event.clientY - (rect.top + rect.height / 2);
-      const columnRects = Object.entries(dayColumnRefs.current)
-        .map(([key, node]) => {
-          if (!node) {
-            return null;
-          }
-          return { key, rect: node.getBoundingClientRect() };
-        })
-        .filter((value): value is ColumnRect => value !== null);
       setPointerCaptureSafe(event);
       setDragState({
         pointerId: event.pointerId,
@@ -678,7 +669,6 @@ export function MiniCalendarView({
         startClientX: event.clientX,
         startClientY: event.clientY,
         hasMoved: false,
-        columnRects,
         lastApplied: null,
         anchorId: item.anchorId,
       });
@@ -702,7 +692,16 @@ export function MiniCalendarView({
             : prev
         );
       }
-      if (dragState.columnRects.length === 0) {
+      const columnRects = Object.entries(dayColumnRefs.current)
+        .map(([key, node]) => {
+          if (!node) {
+            return null;
+          }
+          return { key, rect: node.getBoundingClientRect() };
+        })
+        .filter((value): value is ColumnRect => value !== null);
+
+      if (columnRects.length === 0) {
         return;
       }
       const canApply =
@@ -716,7 +715,7 @@ export function MiniCalendarView({
       const targetCenterY = event.clientY - dragState.pointerOffsetY;
       let closest: ColumnRect | null = null;
       let minDistance = Number.POSITIVE_INFINITY;
-      for (const column of dragState.columnRects) {
+      for (const column of columnRects) {
         const center = column.rect.left + column.rect.width / 2;
         const distance = Math.abs(targetCenterX - center);
         if (distance < minDistance) {
@@ -737,7 +736,7 @@ export function MiniCalendarView({
       const minutesRaw = ratio * MINUTES_IN_DAY;
       const minutes = Math.max(
         0,
-        Math.min(Math.round(minutesRaw), MINUTES_IN_DAY)
+        Math.min(Math.round(minutesRaw), MINUTES_IN_DAY - 5)
       );
       const signature = `${closest.key}-${minutes}`;
       if (dragState.lastApplied === signature) {
@@ -812,7 +811,7 @@ export function MiniCalendarView({
     [dragState]
   );
 
-const handleButtonClick = useCallback(
+  const handleButtonClick = useCallback(
     (_event: MouseEvent<HTMLButtonElement>, eventId: string) => {
       if (suppressClickRef.current) {
         suppressClickRef.current = false;
@@ -915,7 +914,9 @@ const handleButtonClick = useCallback(
     [openEventComposer, openWakeComposer]
   );
 
-  const handleColumnPointerDown = useCallback(
+  // Fix 2 & 3: Touch Scrolling & Ghost Touches
+  // Moved logic from pointerDown to onClick to allow scrolling and prevent accidental creation
+  const handleColumnClick = useCallback(
     (meta: {
       dayKey: string;
       hasWakeAnchor: boolean;
@@ -923,7 +924,7 @@ const handleButtonClick = useCallback(
       events: MiniEvent[];
       day: ComputedView["days"][number];
     }) =>
-      (event: ReactPointerEvent<HTMLDivElement>) => {
+      (event: ReactPointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) => {
         if (dragState || composer) {
           return;
         }
@@ -931,7 +932,7 @@ const handleButtonClick = useCallback(
         if (target?.closest("button")) {
           return;
         }
-        event.preventDefault();
+        // Removed event.preventDefault() to allow scrolling
         const container = event.currentTarget;
         const rect = container.getBoundingClientRect();
         if (rect.height === 0) {
@@ -986,8 +987,8 @@ const handleButtonClick = useCallback(
       const rawCount =
         width > 0
           ? Math.floor(
-              (width + DAY_GAP_PX) / (DAY_COLUMN_WIDTH_PX + DAY_GAP_PX)
-            )
+            (width + DAY_GAP_PX) / (DAY_COLUMN_WIDTH_PX + DAY_GAP_PX)
+          )
           : MIN_DAYS_PER_PAGE;
       const desired = Math.max(
         MIN_DAYS_PER_PAGE,
@@ -1047,22 +1048,22 @@ const handleButtonClick = useCallback(
   const dayColumnWidth =
     visibleCount > 0 && containerWidth > 0
       ? Math.max(
-          DAY_COLUMN_WIDTH_PX,
-          (containerWidth - Math.max(0, visibleCount - 1) * DAY_GAP_PX) /
-            visibleCount
-        )
+        DAY_COLUMN_WIDTH_PX,
+        (containerWidth - Math.max(0, visibleCount - 1) * DAY_GAP_PX) /
+        visibleCount
+      )
       : DAY_COLUMN_WIDTH_PX;
   const composerDay = composer
     ? timelineByDay.find(
-        (item) => item.day.wakeDisplayDate.toString() === composer.dayKey
-      )
+      (item) => item.day.wakeDisplayDate.toString() === composer.dayKey
+    )
     : null;
   const composerLabel = composerDay
     ? composerDay.day.wakeDisplayDate.toLocaleString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      })
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
     : null;
 
   return (
@@ -1224,7 +1225,7 @@ const handleButtonClick = useCallback(
                                 events,
                                 day,
                               })}
-                              onPointerDown={handleColumnPointerDown({
+                              onClick={handleColumnClick({
                                 dayKey,
                                 hasWakeAnchor,
                                 wakeMinutes,
@@ -1306,7 +1307,7 @@ const handleButtonClick = useCallback(
                                       onClick={(clickEvent) =>
                                         handleButtonClick(clickEvent, item.id)
                                       }
-                                    className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} touch-none focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
+                                      className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} touch-none focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
                                       style={{
                                         top: `calc(${topPercent}% - 12px)`,
                                       }}
@@ -1331,18 +1332,18 @@ const handleButtonClick = useCallback(
                                         </p>
                                         {!isWake && item.end
                                           ? (() => {
-                                              const daySuffix = rangeDaySuffix(
-                                                item.start,
-                                                item.end
-                                              ).trim();
-                                              return daySuffix
-                                                ? (
-                                                    <p className="mt-1 text-muted-foreground">
-                                                      {daySuffix}
-                                                    </p>
-                                                  )
-                                                : null;
-                                            })()
+                                            const daySuffix = rangeDaySuffix(
+                                              item.start,
+                                              item.end
+                                            ).trim();
+                                            return daySuffix
+                                              ? (
+                                                <p className="mt-1 text-muted-foreground">
+                                                  {daySuffix}
+                                                </p>
+                                              )
+                                              : null;
+                                          })()
                                           : null}
                                         {isWake ? (
                                           <div className="mt-2 space-y-1 text-muted-foreground">
@@ -1387,11 +1388,10 @@ const handleButtonClick = useCallback(
                               {hoverTarget && hoverTarget.dayKey === dayKey ? (
                                 <button
                                   type="button"
-                                  className={`absolute left-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-sm font-semibold leading-none shadow-sm focus-visible:outline-none focus-visible:ring-2 ${
-                                    hoverTarget.type === "wake"
-                                      ? "bg-emerald-500/70 border-emerald-600 text-emerald-900 focus-visible:ring-emerald-500/70"
-                                      : "bg-white/90 border-border text-foreground focus-visible:ring-ring/60"
-                                  }`}
+                                  className={`absolute left-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-sm font-semibold leading-none shadow-sm focus-visible:outline-none focus-visible:ring-2 ${hoverTarget.type === "wake"
+                                    ? "bg-emerald-500/70 border-emerald-600 text-emerald-900 focus-visible:ring-emerald-500/70"
+                                    : "bg-white/90 border-border text-foreground focus-visible:ring-ring/60"
+                                    }`}
                                   style={{
                                     top: `${(
                                       hoverTarget.minutes / MINUTES_IN_DAY
@@ -1420,11 +1420,11 @@ const handleButtonClick = useCallback(
                     }
                   )}
                 </div>
-                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
       {composer ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
           <div className="w-full max-w-sm space-y-3 rounded-xl border bg-card p-4 text-sm shadow-xl">
