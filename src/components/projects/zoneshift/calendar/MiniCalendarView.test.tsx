@@ -198,16 +198,16 @@ describe("MiniCalendarView - Complex Cases", () => {
             await user.click(dayColumn!.querySelector(".touch-pan-x")!);
 
             // 2. Composer should appear
-            const composer = await screen.findByText("Add event");
+            const composer = await screen.findByText("Add Event");
             expect(composer).toBeInTheDocument();
 
             // 3. Set Start: "23:00"
-            const startInput = screen.getByLabelText("Starts");
+            const startInput = screen.getByLabelText("Start");
             await user.clear(startInput);
             await user.type(startInput, "23:00");
 
             // 4. Set End: "01:00" (implies next day)
-            const endInput = screen.getByLabelText("Ends");
+            const endInput = screen.getByLabelText("End");
             await user.clear(endInput);
             await user.type(endInput, "01:00");
 

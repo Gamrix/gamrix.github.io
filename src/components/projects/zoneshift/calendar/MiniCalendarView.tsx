@@ -21,6 +21,17 @@ import {
   rangeDaySuffix,
   minutesSinceStartOfDay,
 } from "../utils/timeSegments";
+import {
+  MiniCalendarComposer,
+  type ComposerOutput,
+} from "./MiniCalendarComposer";
+
+type ComposerConfig = {
+  type: "event" | "wake";
+  dayKey: string;
+  initialStart: string;
+  initialEnd?: string;
+};
 
 const EVENT_HOVER_DURATION_MINUTES = 60;
 const HOVER_EVENT_THRESHOLD_MINUTES = 12;
@@ -267,25 +278,17 @@ export function MiniCalendarView({
     null
   );
   const [containerWidth, setContainerWidth] = useState(0);
+
+
   const [dragState, setDragState] = useState<DragState | null>(null);
-  const [composer, setComposer] = useState<
-    | null
-    | { type: "event"; dayKey: string }
-    | { type: "wake"; dayKey: string }
-  >(null);
-  const [eventDraft, setEventDraft] = useState({
-    title: "",
-    start: "",
-    end: "",
-  });
-  const [wakeDraft, setWakeDraft] = useState({
-    time: "",
-    note: "",
-  });
-  const [composerError, setComposerError] = useState<string | null>(null);
+  const [composer, setComposer] = useState<ComposerConfig | null>(null);
+  // Removed eventDraft, wakeDraft, composerError state
+
   const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const suppressClickRef = useRef(false);
   const [hoverTarget, setHoverTarget] = useState<HoverTarget | null>(null);
+
+  // ... existing refs and callbacks ...
 
   const setScrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     setScrollContainer(node);
@@ -304,20 +307,9 @@ export function MiniCalendarView({
 
   const closeComposer = useCallback(() => {
     setComposer(null);
-    setComposerError(null);
-  }, []);
+  }, []); // Removed setComposerError
 
-  useEffect(() => {
-    if (composer) {
-      setHoverTarget(null);
-    }
-  }, [composer]);
-
-  useEffect(() => {
-    if (composer) {
-      setHoverTarget(null);
-    }
-  }, [composer]);
+  // ... effects ...
 
   const openEventComposer = useCallback(
     (day: TimelineDay, minuteOverride?: number) => {
@@ -339,13 +331,13 @@ export function MiniCalendarView({
           : brightEndDisplay
             ? minutesSinceStartOfDay(brightEndDisplay)
             : clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES);
-      setEventDraft({
-        title: "",
-        start: minutesToTimeString(startMinutes),
-        end: minutesToTimeString(endMinutes),
+
+      setComposer({
+        type: "event",
+        dayKey,
+        initialStart: minutesToTimeString(startMinutes),
+        initialEnd: minutesToTimeString(endMinutes),
       });
-      setComposer({ type: "event", dayKey });
-      setComposerError(null);
     },
     [displayZoneId]
   );
@@ -353,118 +345,19 @@ export function MiniCalendarView({
   const openWakeComposer = useCallback(
     (day: TimelineDay, minuteOverride?: number) => {
       const dayKey = day.wakeDisplayDate.toString();
-      setWakeDraft({
-        time: minutesToTimeString(
+      setComposer({
+        type: "wake",
+        dayKey,
+        initialStart: minutesToTimeString(
           minuteOverride ?? timeStringToMinutes(day.wakeTimeLocal)
         ),
-        note: "",
       });
-      setComposer({ type: "wake", dayKey });
-      setComposerError(null);
     },
     []
   );
 
-  const handleEventComposerSubmit = useCallback(
-    (formEvent: FormEvent<HTMLFormElement>) => {
-      formEvent.preventDefault();
-      if (!composer || composer.type !== "event") {
-        return;
-      }
-      if (!onAddEvent) {
-        closeComposer();
-        return;
-      }
-      try {
-        const date = Temporal.PlainDate.from(composer.dayKey);
-        const startTime = Temporal.PlainTime.from(eventDraft.start);
-        const startZoned = Temporal.ZonedDateTime.from({
-          timeZone: displayZoneId,
-          year: date.year,
-          month: date.month,
-          day: date.day,
-          hour: startTime.hour,
-          minute: startTime.minute,
-          second: startTime.second,
-        });
-        const endTime = Temporal.PlainTime.from(eventDraft.end);
-        let endZoned = Temporal.ZonedDateTime.from({
-          timeZone: displayZoneId,
-          year: date.year,
-          month: date.month,
-          day: date.day,
-          hour: endTime.hour,
-          minute: endTime.minute,
-          second: endTime.second,
-        });
-        if (Temporal.ZonedDateTime.compare(endZoned, startZoned) <= 0) {
-          endZoned = endZoned.add({ days: 1 });
-        }
-        onAddEvent({
-          title: eventDraft.title,
-          start: startZoned,
-          end: endZoned,
-          zone: displayZoneId,
-        });
-        closeComposer();
-      } catch (error) {
-        setComposerError(
-          error instanceof Error ? error.message : "Unable to add event"
-        );
-      }
-    },
-    [
-      closeComposer,
-      composer,
-      displayZoneId,
-      eventDraft,
-      onAddEvent,
-    ]
-  );
 
-  const handleWakeComposerSubmit = useCallback(
-    (formEvent: FormEvent<HTMLFormElement>) => {
-      formEvent.preventDefault();
-      if (!composer || composer.type !== "wake") {
-        return;
-      }
-      if (!onAddAnchor) {
-        closeComposer();
-        return;
-      }
-      try {
-        const date = Temporal.PlainDate.from(composer.dayKey);
-        const time = Temporal.PlainTime.from(wakeDraft.time);
-        const zoned = Temporal.ZonedDateTime.from({
-          timeZone: displayZoneId,
-          year: date.year,
-          month: date.month,
-          day: date.day,
-          hour: time.hour,
-          minute: time.minute,
-          second: time.second,
-        });
-        onAddAnchor({
-          zoned,
-          zone: displayZoneId,
-          note: wakeDraft.note.trim().length > 0 ? wakeDraft.note : undefined,
-          autoSelect: false,
-        });
-        closeComposer();
-      } catch (error) {
-        setComposerError(
-          error instanceof Error ? error.message : "Unable to add wake time"
-        );
-      }
-    },
-    [
-      closeComposer,
-      composer,
-      displayZoneId,
-      onAddAnchor,
-      wakeDraft,
-    ]
-  );
+
 
   const eventsByDay = useMemo(() => {
     const mapping = new Map<string, MiniEvent[]>();
@@ -1077,13 +970,7 @@ export function MiniCalendarView({
       (item) => item.day.wakeDisplayDate.toString() === composer.dayKey
     )
     : null;
-  const composerLabel = composerDay
-    ? composerDay.day.wakeDisplayDate.toLocaleString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    })
-    : null;
+
 
   return (
     <div className="space-y-4">
@@ -1443,142 +1330,31 @@ export function MiniCalendarView({
             </div>
           </div>
         </div>
-      </div>
-      {composer ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
-          <div className="w-full max-w-sm space-y-3 rounded-xl border bg-card p-4 text-sm shadow-xl">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              {composer.type === "event" ? "Add event" : "Add wake time"}
-            </div>
-            {composerLabel ? (
-              <div className="text-sm font-semibold text-foreground">
-                {composerLabel}
-              </div>
-            ) : null}
-            {composer.type === "event" ? (
-              <form
-                className="space-y-3"
-                onSubmit={handleEventComposerSubmit}
-              >
-                <label className="flex flex-col gap-1">
-                  Title
-                  <input
-                    type="text"
-                    value={eventDraft.title}
-                    onChange={(event) =>
-                      setEventDraft((prev) => ({
-                        ...prev,
-                        title: event.target.value,
-                      }))
-                    }
-                    placeholder="Describe the event"
-                    className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                  />
-                </label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1">
-                    Starts
-                    <input
-                      type="time"
-                      required
-                      value={eventDraft.start}
-                      onChange={(event) =>
-                        setEventDraft((prev) => ({
-                          ...prev,
-                          start: event.target.value,
-                        }))
-                      }
-                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    Ends
-                    <input
-                      type="time"
-                      required
-                      value={eventDraft.end}
-                      onChange={(event) =>
-                        setEventDraft((prev) => ({
-                          ...prev,
-                          end: event.target.value,
-                        }))
-                      }
-                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    />
-                  </label>
-                </div>
-                {composerError ? (
-                  <p className="text-xs text-destructive">{composerError}</p>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" size="sm">
-                    Save event
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={closeComposer}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <form className="space-y-3" onSubmit={handleWakeComposerSubmit}>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1">
-                    Time
-                    <input
-                      type="time"
-                      required
-                      value={wakeDraft.time}
-                      onChange={(event) =>
-                        setWakeDraft((prev) => ({
-                          ...prev,
-                          time: event.target.value,
-                        }))
-                      }
-                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1">
-                    Note
-                    <input
-                      type="text"
-                      value={wakeDraft.note}
-                      onChange={(event) =>
-                        setWakeDraft((prev) => ({
-                          ...prev,
-                          note: event.target.value,
-                        }))
-                      }
-                      placeholder="Optional context"
-                      className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                    />
-                  </label>
-                </div>
-                {composerError ? (
-                  <p className="text-xs text-destructive">{composerError}</p>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" size="sm">
-                    Save wake time
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={closeComposer}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            )}
+        {composer && composerDay ? (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/50">
+            <MiniCalendarComposer
+              mode={composer.type}
+              dayKey={composer.dayKey}
+              dayLabel={
+                composerDay.day.wakeDisplayDate.toLocaleString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })
+              }
+              initialValues={{
+                startOrTime: composer.initialStart,
+                end: composer.initialEnd,
+              }}
+              displayZoneId={displayZoneId}
+              onAddEvent={onAddEvent}
+              onAddAnchor={onAddAnchor}
+              onCancel={closeComposer}
+              className="shadow-2xl"
+            />
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
