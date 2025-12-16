@@ -68,7 +68,7 @@ export function CalendarListView({
           : undefined;
         const key = start.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
-        bucket.push({ id: event.id, title: event.title, start, end, splitFrom: event.splitFrom });
+        bucket.push({ id: event.id, title: event.title ?? "", start, end, splitFrom: event.splitFrom });
         mapping.set(key, bucket);
       } catch (error) {
         console.error(
@@ -89,7 +89,7 @@ export function CalendarListView({
   const anchorsByDay = useMemo(() => {
     const mapping = new Map<string, CalendarAnchor[]>();
     plan.anchors.forEach((anchor) => {
-      try{
+      try {
         const zoned = Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(displayZoneId);
         const key = zoned.toPlainDate().toString();
         const bucket = mapping.get(key) ?? [];
@@ -119,9 +119,9 @@ export function CalendarListView({
   const [composer, setComposer] = useState<
     | null
     | {
-        type: "event" | "wake";
-        dayKey: string;
-      }
+      type: "event" | "wake";
+      dayKey: string;
+    }
   >(null);
   const [eventDraft, setEventDraft] = useState({
     title: "",
@@ -140,11 +140,15 @@ export function CalendarListView({
   };
 
   const openEventComposer = (
-    day: ComputedView["days"][number],
+    wakeZoned: Temporal.ZonedDateTime,
+    brightEndZoned: Temporal.ZonedDateTime | undefined,
     dayKey: string
   ) => {
-    const startDisplay = day.wakeZoned.withTimeZone(displayZoneId);
-    const endDisplay = day.brightEndZoned.withTimeZone(displayZoneId);
+    const startDisplay = wakeZoned.withTimeZone(displayZoneId);
+    const endDisplay = brightEndZoned
+      ? brightEndZoned.withTimeZone(displayZoneId)
+      : startDisplay.add({ hours: 1 }); // Fallback duration
+
     setEventDraft({
       title: "",
       start: startDisplay
@@ -159,11 +163,11 @@ export function CalendarListView({
   };
 
   const openWakeComposer = (
-    day: ComputedView["days"][number],
+    wakeTimeLocal: string,
     dayKey: string
   ) => {
     setWakeDraft({
-      time: day.wakeTimeLocal,
+      time: wakeTimeLocal,
       note: "",
     });
     setComposer({ type: "wake", dayKey });
@@ -420,7 +424,7 @@ export function CalendarListView({
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => openWakeComposer(day, dayKey)}
+                  onClick={() => openWakeComposer(wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }), dayKey)}
                 >
                   Add wake anchor
                 </Button>
@@ -445,24 +449,24 @@ export function CalendarListView({
                     });
                   const endLabel = event.end
                     ? event.end
-                        .toPlainTime()
-                        .toString({
-                          smallestUnit: "minute",
-                          fractionalSecondDigits: 0,
-                        })
+                      .toPlainTime()
+                      .toString({
+                        smallestUnit: "minute",
+                        fractionalSecondDigits: 0,
+                      })
                     : null;
-                  const rangeLabel = endLabel
+                  const rangeLabel = event.end
                     ? formatRangeLabel(
-                        event.start.toString({
-                          smallestUnit: "minute",
-                          fractionalSecondDigits: 0,
-                        }),
-                        event.end.toString({
-                          smallestUnit: "minute",
-                          fractionalSecondDigits: 0,
-                        }),
-                        { separator: " → " }
-                      )
+                      event.start.toPlainTime().toString({
+                        smallestUnit: "minute",
+                        fractionalSecondDigits: 0,
+                      }),
+                      event.end.toPlainTime().toString({
+                        smallestUnit: "minute",
+                        fractionalSecondDigits: 0,
+                      }),
+                      { separator: " → " }
+                    )
                     : startLabel;
                   return (
                     <Button
@@ -560,7 +564,7 @@ export function CalendarListView({
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => openEventComposer(day, dayKey)}
+                  onClick={() => openEventComposer(wakeEvent.startZoned, brightEvent.endZoned, dayKey)}
                 >
                   Add event
                 </Button>

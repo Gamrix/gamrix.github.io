@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./dialogs/DialogPrimitive";
-import { ScheduleTable } from "./table/ScheduleTable";
+import { ScheduleTable } from "./ScheduleTable";
 import { ImportExport } from "./toolbar/ImportExport";
 import { TzToggle } from "./toolbar/TzToggle";
 import { computePlan } from "@/scripts/projects/zoneshift/model";
@@ -52,7 +52,8 @@ export function PlanEditor() {
   const activeAnchor =
     plan.anchors.find((anchor) => anchor.id === activeAnchorId) ?? null;
 
-  const totalDeltaHours = computed.meta.totalDeltaHours
+  const totalDeltaHoursValue = computed.meta.totalDeltaHours;
+  const totalDeltaHours = totalDeltaHoursValue
     .toFixed(1)
     .replace(/\.0$/, "");
 
@@ -209,7 +210,7 @@ export function PlanEditor() {
           <div>
             <dt className="uppercase tracking-[0.16em]">Shift strategy</dt>
             <dd className="text-lg font-medium text-foreground">
-              {totalDeltaHours > 0 ? "later" : totalDeltaHours < 0 ? "earlier" : "none"}
+              {totalDeltaHoursValue > 0 ? "later" : totalDeltaHoursValue < 0 ? "earlier" : "none"}
             </dd>
           </div>
           <div>

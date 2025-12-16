@@ -93,24 +93,24 @@ type VisibleRanges = Record<string, { start: number; end: number }>;
 type ContextMenuState =
   | { visible: false }
   | {
-      visible: true;
-      isoDate: string;
-      clientX: number;
-      clientY: number;
-      minuteOffset: number;
-    };
+    visible: true;
+    isoDate: string;
+    clientX: number;
+    clientY: number;
+    minuteOffset: number;
+  };
 
 type EventComposerState =
   | { visible: false }
   | {
-      visible: true;
-      isoDate: string;
-      clientX: number;
-      clientY: number;
-      start: string;
-      end: string;
-      title: string;
-    };
+    visible: true;
+    isoDate: string;
+    clientX: number;
+    clientY: number;
+    start: string;
+    end: string;
+    title: string;
+  };
 
 const setPointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   const target = event.currentTarget as Element & {
@@ -231,10 +231,10 @@ export function Timeline({
         }
         bucket.push({
           id: event.id,
-          title: event.title,
+          title: event.title ?? "",
           start,
           end,
-          zone: event.zone,
+          zone: event.originalZone ?? event.startZoned.timeZoneId,
           conflict,
         });
         mapping.set(key, bucket);
@@ -354,7 +354,7 @@ export function Timeline({
           end: endInZone,
           zone: dragState.zone,
         });
-      } else {
+      } else if (dragState.type === "anchor") {
         const nextInstantDisplay = dragState.originalInstant.add({
           minutes: deltaMinutes,
         });
@@ -850,11 +850,10 @@ export function Timeline({
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
-                        className={`absolute inset-x-2 cursor-grab rounded-md border px-2 py-1 text-left text-xs shadow-sm outline-none ring-primary focus-visible:ring-2 ${
-                          item.conflict
-                            ? "border-primary bg-primary/20 text-primary"
-                            : "border-primary/70 bg-primary/10 text-primary"
-                        }`}
+                        className={`absolute inset-x-2 cursor-grab rounded-md border px-2 py-1 text-left text-xs shadow-sm outline-none ring-primary focus-visible:ring-2 ${item.conflict
+                          ? "border-primary bg-primary/20 text-primary"
+                          : "border-primary/70 bg-primary/10 text-primary"
+                          }`}
                         style={{
                           top: `${startMinutes * PIXELS_PER_MINUTE}px`,
                           height: `${durationMinutes * PIXELS_PER_MINUTE}px`,
@@ -870,11 +869,11 @@ export function Timeline({
                             })}
                           {item.end
                             ? ` → ${item.end
-                                .toPlainTime()
-                                .toString({
-                                  smallestUnit: "minute",
-                                  fractionalSecondDigits: 0,
-                                })}${timeSuffix}`
+                              .toPlainTime()
+                              .toString({
+                                smallestUnit: "minute",
+                                fractionalSecondDigits: 0,
+                              })}${timeSuffix}`
                             : ""}
                         </div>
                         {item.end ? (

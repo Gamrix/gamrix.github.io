@@ -10,14 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./DialogPrimitive";
-import type { AnchorPoint, CorePlan } from "@/scripts/projects/zoneshift/model";
+import type { WakeAnchor, CorePlan } from "@/scripts/projects/zoneshift/model";
 
 type AnchorDialogProps = {
   plan: CorePlan;
-  anchor: AnchorPoint | null;
+  anchor: WakeAnchor | null;
   open: boolean;
   onClose: () => void;
-  onUpdate: (anchorId: string, payload: Partial<AnchorPoint>) => void;
+  onUpdate: (anchorId: string, payload: Partial<WakeAnchor>) => void;
   onRemove: (anchorId: string) => void;
 };
 

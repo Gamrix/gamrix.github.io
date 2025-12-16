@@ -361,6 +361,7 @@ describe("Additional Edge Case Coverage", () => {
       params: {
         ...basePlan().params,
         maxShiftEarlierPerDayHours: 1.0, // Allow up to 1h earlier per day
+        endWakeUtc: "2024-10-21T07:00:00Z", // Match end anchor to prevent auto-generation
       },
       anchors: [
         {
@@ -395,7 +396,7 @@ describe("Additional Edge Case Coverage", () => {
     });
 
     // Verify the final anchor link
-    const lastEntry = computed.wakeSchedule.at(-1);
+    const lastEntry = computed.wakeSchedule[computed.wakeSchedule.length - 1];
     expect(lastEntry?.anchor?.id).toBe("end");
     // Ideally the last link would also reflect the shift, but our logic
     // calculates shift based on the *previous* wake.

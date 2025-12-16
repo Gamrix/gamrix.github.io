@@ -229,6 +229,25 @@ const releasePointerCaptureSafe = (event: ReactPointerEvent<Element>) => {
   }
 };
 
+type TimelineDay = {
+  wakeInstant: Temporal.Instant;
+  wakeZoned: Temporal.ZonedDateTime;
+  wakeDisplayDate: Temporal.PlainDate;
+  changeThisDayHours: number;
+  sleepStartLocal: string;
+  sleepStartZoned: Temporal.ZonedDateTime;
+  wakeTimeLocal: string;
+  brightStartZoned?: Temporal.ZonedDateTime;
+  brightEndZoned?: Temporal.ZonedDateTime;
+  anchors: {
+    id: string;
+    kind: "wake";
+    note?: string;
+    instant: Temporal.Instant;
+    editable: boolean;
+  }[];
+};
+
 export function MiniCalendarView({
   plan,
   computed,
@@ -301,7 +320,7 @@ export function MiniCalendarView({
   }, [composer]);
 
   const openEventComposer = useCallback(
-    (day: ComputedView["days"][number], minuteOverride?: number) => {
+    (day: TimelineDay, minuteOverride?: number) => {
       const dayKey = day.wakeDisplayDate.toString();
       const brightStartDisplay = day.brightStartZoned
         ? day.brightStartZoned.withTimeZone(displayZoneId)
@@ -332,7 +351,7 @@ export function MiniCalendarView({
   );
 
   const openWakeComposer = useCallback(
-    (day: ComputedView["days"][number], minuteOverride?: number) => {
+    (day: TimelineDay, minuteOverride?: number) => {
       const dayKey = day.wakeDisplayDate.toString();
       setWakeDraft({
         time: minutesToTimeString(
@@ -465,11 +484,11 @@ export function MiniCalendarView({
         const bucket = mapping.get(key) ?? [];
         bucket.push({
           id: event.id,
-          title: event.title,
+          title: event.title ?? "",
           start,
           end,
           summary,
-          zone: event.zone,
+          zone: event.originalZone ?? event.startZoned.timeZoneId,
           kind: "event",
           editable: true,
         });
@@ -526,6 +545,7 @@ export function MiniCalendarView({
       // Resolve Zoned Times from ScheduleEntry (Ground Truth)
       const wakeZoned = entry.wakeEvent.startInstant.toZonedDateTimeISO(displayZoneId);
       const sleepZoned = entry.sleepEvent.startInstant.toZonedDateTimeISO(displayZoneId);
+      const brightStartZoned = entry.wakeEvent.startInstant.toZonedDateTimeISO(displayZoneId);
       const brightEndZoned = entry.brightEvent.endInstant
         ? entry.brightEvent.endInstant.toZonedDateTimeISO(displayZoneId)
         : undefined;
@@ -598,7 +618,7 @@ export function MiniCalendarView({
       const combined = [...events, ...wakeEvents];
       combined.sort((a, b) => Temporal.ZonedDateTime.compare(a.start, b.start));
 
-      const day = {
+      const day: TimelineDay = {
         wakeInstant: entry.wakeEvent.startInstant,
         wakeZoned: wakeZoned,
         wakeDisplayDate: wakeDate,
@@ -606,6 +626,7 @@ export function MiniCalendarView({
         sleepStartLocal: sleepZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
         sleepStartZoned: sleepZoned,
         wakeTimeLocal: wakeZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        brightStartZoned: brightStartZoned,
         brightEndZoned: brightEndZoned,
         anchors: anchor ? [{
           id: anchor.id,
@@ -616,7 +637,13 @@ export function MiniCalendarView({
         }] : [],
       };
 
-      return { day, segments, events: combined };
+      return {
+        day,
+        segments,
+        events: combined,
+        hasWakeAnchor: Boolean(anchor),
+        wakeMinutes: toMinutes(wakeZoned)
+      };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
   }, [anchorMetadata, computed.wakeSchedule, displayZoneId, eventsByDay]);
 
@@ -820,7 +847,7 @@ export function MiniCalendarView({
       hasWakeAnchor: boolean;
       wakeMinutes: number;
       events: MiniEvent[];
-      day: ComputedView["days"][number];
+      day: TimelineDay;
     }) =>
       (event: ReactPointerEvent<HTMLDivElement>) => {
         if (dragState || composer) {
@@ -893,7 +920,7 @@ export function MiniCalendarView({
   const handleHoverCreate = useCallback(
     (
       kind: "event" | "wake",
-      day: ComputedView["days"][number],
+      day: TimelineDay,
       minutes: number
     ) => {
       if (kind === "wake") {
@@ -914,7 +941,7 @@ export function MiniCalendarView({
       hasWakeAnchor: boolean;
       wakeMinutes: number;
       events: MiniEvent[];
-      day: ComputedView["days"][number];
+      day: TimelineDay;
     }) =>
       (event: ReactPointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) => {
         if (dragState || composer) {

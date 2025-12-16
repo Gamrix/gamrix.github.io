@@ -187,25 +187,25 @@ export function ScheduleTable({
 
   const composerScheduleEntry = composer
     ? computed.wakeSchedule.find((entry) => {
-        const allEvents = computed.displayDays.flatMap(d => d.events);
-        const wakeEvent = allEvents.find(e =>
-          e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
-        );
-        return wakeEvent?.startZoned.toPlainDate().toString() === composer.dayKey;
-      })
+      const allEvents = computed.displayDays.flatMap(d => d.events);
+      const wakeEvent = allEvents.find(e =>
+        e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+      );
+      return wakeEvent?.startZoned.toPlainDate().toString() === composer.dayKey;
+    })
     : null;
   const composerLabel = composerScheduleEntry
     ? (() => {
-        const allEvents = computed.displayDays.flatMap(d => d.events);
-        const wakeEvent = allEvents.find(e =>
-          e.id === composerScheduleEntry.wakeEvent.id || e.splitFrom === composerScheduleEntry.wakeEvent.id
-        );
-        return wakeEvent?.startZoned.toPlainDate().toLocaleString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        });
-      })()
+      const allEvents = computed.displayDays.flatMap(d => d.events);
+      const wakeEvent = allEvents.find(e =>
+        e.id === composerScheduleEntry.wakeEvent.id || e.splitFrom === composerScheduleEntry.wakeEvent.id
+      );
+      return wakeEvent?.startZoned.toPlainDate().toLocaleString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+    })()
     : null;
 
   return (
@@ -320,7 +320,11 @@ export function ScheduleTable({
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => openEventComposer(wakeDate, wakeEvent.startZoned, brightEvent.endZoned)}
+                        onClick={() => {
+                          if (brightEvent.endZoned) {
+                            openEventComposer(wakeDate, wakeEvent.startZoned, brightEvent.endZoned);
+                          }
+                        }}
                       >
                         Plan event
                       </Button>

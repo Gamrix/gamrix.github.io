@@ -39,7 +39,13 @@ export function DialogTrigger({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function DialogContent({ children }: { children: React.ReactNode }) {
+export function DialogContent({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   const { open, onOpenChange } = useDialogContext();
   const [portalTarget, setPortalTarget] = useState<HTMLDivElement | null>(null);
 
@@ -76,7 +82,10 @@ export function DialogContent({ children }: { children: React.ReactNode }) {
 
   const node = (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur">
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-xl">
+      <div
+        className={`relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-6 shadow-xl ${className ?? ""
+          }`}
+      >
         <button
           type="button"
           className="absolute right-4 top-4 text-sm text-muted-foreground"
