@@ -225,17 +225,34 @@ export function computePlan(core: CorePlan): ComputedView {
     const current = resolvedAnchors[i];
     wakeInstants.push({ instant: current.wake, anchorId: current.anchor.id });
 
-    // Fill forward until next anchor (with 6-hour buffer)
+    // Fill forward until next anchor
     if (i < resolvedAnchors.length - 1) {
       const next = resolvedAnchors[i + 1];
-      const nextSleepStart = next.wake.subtract(context.sleepDuration);
-      const buffer = Temporal.Duration.from({ hours: 6 });
-      const stopBefore = nextSleepStart.subtract(buffer);
 
-      let fillWake = current.wake.add(Temporal.Duration.from({ hours: 24 }));
-      while (Temporal.Instant.compare(fillWake, stopBefore) < 0) {
-        wakeInstants.push({ instant: fillWake });
-        fillWake = fillWake.add(Temporal.Duration.from({ hours: 24 }));
+      const deltaMinutes = next.wake.since(current.wake).total({ unit: "minutes" });
+      const cycles = Math.round(deltaMinutes / (24 * 60));
+
+      if (cycles > 1) {
+        // We have intermediate days to fill
+        const totalShiftMinutes = deltaMinutes - (cycles * 24 * 60);
+        const shiftPerDayMinutes = totalShiftMinutes / cycles;
+
+        // Clamp shift
+        const maxLater = core.params.maxShiftLaterPerDayHours * 60;
+        const maxEarlier = -core.params.maxShiftEarlierPerDayHours * 60;
+
+        const clampedShiftMinutes = Math.max(
+          maxEarlier,
+          Math.min(maxLater, shiftPerDayMinutes)
+        );
+
+        let previousWake = current.wake;
+        for (let k = 1; k < cycles; k++) {
+          const minutesToAdd = Math.round(24 * 60 + clampedShiftMinutes);
+          const nextWake = previousWake.add({ minutes: minutesToAdd });
+          wakeInstants.push({ instant: nextWake });
+          previousWake = nextWake;
+        }
       }
     }
   }
