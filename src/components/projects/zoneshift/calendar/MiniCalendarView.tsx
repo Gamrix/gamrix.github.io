@@ -25,7 +25,6 @@ import {
   MiniCalendarComposer,
   type ComposerOutput,
 } from "./MiniCalendarComposer";
-import { EventItem } from "./EventItem";
 
 type ComposerConfig = {
   type: "event" | "wake";
@@ -101,7 +100,19 @@ type TimeSegment = {
   type: SegmentType;
 };
 
-import type { MiniEvent } from "./MiniEvent";
+type MiniEvent = {
+  id: string;
+  title: string;
+  start: Temporal.ZonedDateTime;
+  end?: Temporal.ZonedDateTime;
+  summary: string;
+  zone: string;
+  kind: "event" | "wake";
+  editable: boolean;
+  anchorId?: string;
+  note?: string;
+  displayTime?: string;
+};
 
 const TIMELINE_HEIGHT = "min(34rem, 80vh)";
 const HEADER_HEIGHT = "2.5rem";
@@ -1139,50 +1150,173 @@ export function MiniCalendarView({
                                 />
                               ))}
 
-                              {events.map((item) => (
-                                <EventItem
-                                  key={item.id}
-                                  item={item}
-                                  isActive={expandedEventId === item.id}
-                                  onEditEvent={onEditEvent}
-                                  onEditAnchor={onEditAnchor}
-                                  onPointerDown={handlePointerDown}
-                                  onPointerMove={handlePointerMove}
-                                  onPointerUp={handlePointerUp}
-                                  onPointerCancel={handlePointerCancel}
-                                  onClick={handleButtonClick}
-                                />
-                              ))}
-                              {
-                                hoverTarget && hoverTarget.dayKey === dayKey ? (
-                                  <button
-                                    type="button"
-                                    className={`absolute left-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-sm font-semibold leading-none shadow-sm focus-visible:outline-none focus-visible:ring-2 ${hoverTarget.type === "wake"
-                                      ? "bg-emerald-500/70 border-emerald-600 text-emerald-900 focus-visible:ring-emerald-500/70"
-                                      : "bg-white/90 border-border text-foreground focus-visible:ring-ring/60"
-                                      }`}
-                                    style={{
-                                      top: `${(
-                                        hoverTarget.minutes / MINUTES_IN_DAY
-                                      ) * 100}%`,
-                                    }}
-                                    onClick={() =>
-                                      handleHoverCreate(
-                                        hoverTarget.type,
-                                        day,
-                                        hoverTarget.minutes
-                                      )
-                                    }
-                                    aria-label={
-                                      hoverTarget.type === "wake"
-                                        ? `Add wake anchor on ${dateLabel}`
-                                        : `Add event on ${dateLabel}`
-                                    }
-                                  >
-                                    +
-                                  </button>
-                                ) : null
-                              }
+                              {events.map((item) => {
+                                const minuteOffset = getMinutesFromZdt(
+                                  item.start
+                                );
+                                const topPercent =
+                                  (minuteOffset / MINUTES_IN_DAY) * 100;
+                                const isActive = expandedEventId === item.id;
+                                const isWake = item.kind === "wake";
+                                const isDragging =
+                                  dragState?.eventId === item.id;
+                                const wakeDraggable =
+                                  isWake && item.editable && Boolean(onAnchorChange);
+                                const eventDraggable =
+                                  !isWake && Boolean(onEventChange);
+                                const markerBackground = isWake
+                                  ? isActive
+                                    ? "bg-emerald-600"
+                                    : "bg-emerald-500"
+                                  : isActive
+                                    ? "bg-primary"
+                                    : "bg-foreground";
+                                const cursorClass = isWake
+                                  ? wakeDraggable
+                                    ? isDragging
+                                      ? "cursor-grabbing"
+                                      : "cursor-grab"
+                                    : "cursor-pointer"
+                                  : eventDraggable
+                                    ? isDragging
+                                      ? "cursor-grabbing"
+                                      : "cursor-grab"
+                                    : "cursor-pointer";
+                                const focusRingClass = isWake
+                                  ? "focus-visible:ring-emerald-500/60"
+                                  : "focus-visible:ring-ring/70";
+                                const ariaLabel = isWake
+                                  ? `${item.title} at ${item.summary}`
+                                  : item.title;
+                                const eventDaySuffix =
+                                  !isWake && item.end
+                                    ? rangeDaySuffix(item.start, item.end).trim()
+                                    : "";
+
+                                return (
+                                  <Fragment key={item.id}>
+                                    <button
+                                      type="button"
+                                      onPointerDown={(pointerEvent) =>
+                                        handlePointerDown(pointerEvent, item)
+                                      }
+                                      onPointerMove={handlePointerMove}
+                                      onPointerUp={(pointerEvent) =>
+                                        handlePointerUp(
+                                          pointerEvent,
+                                          item.id
+                                        )
+                                      }
+                                      onPointerCancel={handlePointerCancel}
+                                      onClick={(clickEvent) =>
+                                        handleButtonClick(clickEvent, item.id)
+                                      }
+                                      className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} touch-none focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
+                                      style={{
+                                        top: `calc(${topPercent}% - 12px)`,
+                                      }}
+                                      aria-label={ariaLabel}
+                                    >
+                                      {eventDaySuffix ? (
+                                        <span className="sr-only">{eventDaySuffix}</span>
+                                      ) : null}
+                                    </button>
+                                    {isActive ? (
+                                      <div
+                                        className={`absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border ${isWake ? "border-emerald-500/60" : "border-border"} bg-card/95 p-3 text-xs shadow-lg`}
+                                        style={{
+                                          top: `calc(${topPercent}% - 16px)`,
+                                        }}
+                                      >
+                                        <div className="font-semibold text-foreground">
+                                          {item.title}
+                                        </div>
+                                        <p className="text-muted-foreground">
+                                          {item.summary}
+                                        </p>
+                                        {!isWake && item.end
+                                          ? (() => {
+                                            const daySuffix = rangeDaySuffix(
+                                              item.start,
+                                              item.end
+                                            ).trim();
+                                            return daySuffix
+                                              ? (
+                                                <p className="mt-1 text-muted-foreground">
+                                                  {daySuffix}
+                                                </p>
+                                              )
+                                              : null;
+                                          })()
+                                          : null}
+                                        {isWake ? (
+                                          <div className="mt-2 space-y-1 text-muted-foreground">
+                                            <p>
+                                              Local time: {item.displayTime ?? item.summary}
+                                            </p>
+                                            <p>Zone: {item.zone}</p>
+                                            {item.note ? (
+                                              <p>Note: {item.note}</p>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                        {onEditEvent && !isWake ? (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="mt-2"
+                                            onClick={() =>
+                                              onEditEvent(item.id)
+                                            }
+                                          >
+                                            Edit event
+                                          </Button>
+                                        ) : null}
+                                        {onEditAnchor && isWake && item.anchorId ? (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="mt-2"
+                                            onClick={() => onEditAnchor(item.anchorId!)}
+                                          >
+                                            Edit wake anchor
+                                          </Button>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
+                                  </Fragment>
+                                );
+                              })}
+                              {hoverTarget && hoverTarget.dayKey === dayKey ? (
+                                <button
+                                  type="button"
+                                  className={`absolute left-1/2 z-30 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-sm font-semibold leading-none shadow-sm focus-visible:outline-none focus-visible:ring-2 ${hoverTarget.type === "wake"
+                                    ? "bg-emerald-500/70 border-emerald-600 text-emerald-900 focus-visible:ring-emerald-500/70"
+                                    : "bg-white/90 border-border text-foreground focus-visible:ring-ring/60"
+                                    }`}
+                                  style={{
+                                    top: `${(
+                                      hoverTarget.minutes / MINUTES_IN_DAY
+                                    ) * 100}%`,
+                                  }}
+                                  onClick={() =>
+                                    handleHoverCreate(
+                                      hoverTarget.type,
+                                      day,
+                                      hoverTarget.minutes
+                                    )
+                                  }
+                                  aria-label={
+                                    hoverTarget.type === "wake"
+                                      ? `Add wake anchor on ${dateLabel}`
+                                      : `Add event on ${dateLabel}`
+                                  }
+                                >
+                                  +
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         </div>
