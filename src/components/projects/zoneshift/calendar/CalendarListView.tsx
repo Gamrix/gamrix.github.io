@@ -456,17 +456,9 @@ export function CalendarListView({
                       })
                     : null;
                   const rangeLabel = event.end
-                    ? formatRangeLabel(
-                      event.start.toPlainTime().toString({
-                        smallestUnit: "minute",
-                        fractionalSecondDigits: 0,
-                      }),
-                      event.end.toPlainTime().toString({
-                        smallestUnit: "minute",
-                        fractionalSecondDigits: 0,
-                      }),
-                      { separator: " → " }
-                    )
+                    ? formatRangeLabel(event.start, event.end, {
+                      separator: " → ",
+                    })
                     : startLabel;
                   return (
                     <Button
