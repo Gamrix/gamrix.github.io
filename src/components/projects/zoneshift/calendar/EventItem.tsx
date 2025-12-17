@@ -69,9 +69,9 @@ export function EventItem({
                 onPointerUp={(e) => onPointerUp(e, item.id)}
                 onPointerCancel={onPointerCancel}
                 onClick={(e) => onClick(e, item.id)}
-                className={`absolute left - 1 / 2 z - 20 h - 6 w - 6 - translate - x - 1 / 2 rounded - full border border - card shadow - sm ${markerBackground} ${cursorClass} touch - none focus - visible: outline - none focus - visible: ring - 2 ${focusRingClass} `}
+                className={`absolute left-1/2 z-20 h-6 w-6 -translate-x-1/2 rounded-full border border-card shadow-sm ${markerBackground} ${cursorClass} touch-none focus-visible:outline-none focus-visible:ring-2 ${focusRingClass}`}
                 style={{
-                    top: `calc(${topPercent} % - 12px)`,
+                    top: `calc(${topPercent}% - 12px)`,
                 }}
                 aria-label={ariaLabel}
             >
@@ -81,10 +81,9 @@ export function EventItem({
             </button>
             {isActive ? (
                 <div
-                    className={`absolute left - 1 / 2 z - 30 w - 48 - translate - x - 1 / 2 - translate - y - full rounded - lg border ${isWake ? "border-emerald-500/60" : "border-border"
-                        } bg - card / 95 p - 3 text - xs shadow - lg`}
+                    className={`absolute left-1/2 z-30 w-48 -translate-x-1/2 -translate-y-full rounded-lg border ${isWake ? "border-emerald-500/60" : "border-border"} bg-card/95 p-3 text-xs shadow-lg`}
                     style={{
-                        top: `calc(${topPercent} % - 16px)`,
+                        top: `calc(${topPercent}% - 16px)`,
                     }}
                 >
                     <div className="font-semibold text-foreground">{item.title}</div>
