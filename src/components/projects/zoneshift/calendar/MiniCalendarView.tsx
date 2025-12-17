@@ -424,101 +424,107 @@ export function MiniCalendarView({
   }, [plan?.anchors, displayZoneId]);
 
   const timelineByDay = useMemo(() => {
-    // Helper to calculate minutes for time
     const toMinutes = (value: Temporal.ZonedDateTime) => {
-      // Note: minutesSinceStartOfDay returns 0-1439.
-      // If we are projecting, we handle the 1440 case manually.
       return minutesSinceStartOfDay(value.withTimeZone(displayZoneId));
     };
 
     const schedule = computed.wakeSchedule ?? [];
     return schedule.map((entry) => {
-      // Resolve Zoned Times from ScheduleEntry (Ground Truth)
-      const wakeZoned = entry.wakeEvent.startInstant.toZonedDateTimeISO(displayZoneId);
-      const sleepZoned = entry.sleepEvent.startInstant.toZonedDateTimeISO(displayZoneId);
-      const brightStartZoned = entry.wakeEvent.startInstant.toZonedDateTimeISO(displayZoneId);
-      const brightEndZoned = entry.brightEvent.endInstant
-        ? entry.brightEvent.endInstant.toZonedDateTimeISO(displayZoneId)
-        : undefined;
+      const displayDays = computed.displayDays ?? [];
+      const allEvents = displayDays.flatMap(d => d.events ?? []);
+      const wakeEvent = allEvents.find(e =>
+        e.id === entry.wakeEvent.id || e.splitFrom === entry.wakeEvent.id
+      );
+      const sleepEvent = allEvents.find(e =>
+        e.id === entry.sleepEvent.id || e.splitFrom === entry.sleepEvent.id
+      );
+      const brightEvent = allEvents.find(e =>
+        e.id === entry.brightEvent.id || e.splitFrom === entry.brightEvent.id
+      );
 
-      // Define Day Boundaries for this column (The Wake Day)
-      const wakeDate = wakeZoned.toPlainDate();
-      const dayStart = wakeDate.toZonedDateTime({ timeZone: displayZoneId, plainTime: "00:00" });
-      const dayEnd = dayStart.add({ days: 1 });
-
-      // Helper to clip ranges to this day
-      const projectToDay = (start: Temporal.ZonedDateTime, end: Temporal.ZonedDateTime) => {
-        if (Temporal.ZonedDateTime.compare(end, dayStart) <= 0) return null;
-        if (Temporal.ZonedDateTime.compare(start, dayEnd) >= 0) return null;
-
-        const s = Temporal.ZonedDateTime.compare(start, dayStart) > 0 ? start : dayStart;
-        const e = Temporal.ZonedDateTime.compare(end, dayEnd) < 0 ? end : dayEnd;
-
-        const sMin = toMinutes(s);
-        let eMin = toMinutes(e);
-
-        // If we clamped to dayEnd (or natural end is at midnight), force 1440
-        // Compare epoch nanoseconds to be precise, or just equality check
-        if (Temporal.ZonedDateTime.compare(e, dayEnd) === 0) {
-          eMin = MINUTES_IN_DAY;
-        }
-        // If wrapping occurred naturally (e.g. 0 min) but it should be 1440
-        if (eMin === 0 && Temporal.ZonedDateTime.compare(e, dayStart) > 0) {
-          eMin = MINUTES_IN_DAY;
-        }
-
-        return { start: sMin, end: eMin };
-      };
-
-      let segments: TimeSegment[] = [{ start: 0, end: MINUTES_IN_DAY, type: "other" }];
-
-      // SLEEP
-      const sleepRange = projectToDay(sleepZoned, wakeZoned);
-      if (sleepRange) {
-        segments = carveRange(segments, sleepRange.start, sleepRange.end, "sleep");
+      if (!wakeEvent || !sleepEvent || !brightEvent || !brightEvent.endZoned) {
+        return null;
       }
 
-      // BRIGHT
-      if (brightEndZoned) {
-        const brightRange = projectToDay(wakeZoned, brightEndZoned);
-        if (brightRange) {
-          segments = carveRange(segments, brightRange.start, brightRange.end, "bright");
-        }
+      const sleepStart = toMinutes(sleepEvent.startZoned);
+      const sleepEnd = toMinutes(wakeEvent.startZoned);
+      const brightStart = toMinutes(wakeEvent.startZoned);
+      const brightEnd = toMinutes(brightEvent.endZoned);
+
+      let segments: TimeSegment[] = [
+        { start: 0, end: MINUTES_IN_DAY, type: "other" },
+      ];
+
+      if (sleepStart !== null && sleepEnd !== null) {
+        segments = applySegment(segments, sleepStart, sleepEnd, "sleep");
       }
 
+      if (brightStart !== null && brightEnd !== null) {
+        segments = applySegment(segments, brightStart, brightEnd, "bright");
+      }
+
+      const wakeDate = wakeEvent.startZoned.toPlainDate();
       const key = wakeDate.toString();
       const events = eventsByDay.get(key) ?? [];
       const anchor = entry.anchor;
       const wakeEvents: MiniEvent[] = anchor ? [{
         id: `wake-${anchor.id}`,
         title: anchor.note?.trim() || "Wake time",
-        start: wakeZoned, // Use the zoned instant directly
+        start: wakeEvent.startZoned,
         summary: (() => {
-          const timeLabel = wakeZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+          const timeLabel = wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
           const trimmedNote = anchor.note?.trim() ?? "";
           return trimmedNote.length > 0 ? `${timeLabel} · ${trimmedNote}` : timeLabel;
         })(),
-        zone: anchor.zone, // Use anchor zone or fallback
+        zone: wakeEvent.originalZone || wakeEvent.startZoned.timeZoneId,
         kind: "wake" as const,
         anchorId: anchor.id,
         editable: !anchor.id.startsWith("__auto"),
         note: anchor.note,
-        displayTime: wakeZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        displayTime: wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
       }] : [];
-
+      /*const wakeEvents: MiniEvent[] = day.anchors
+        .filter((anchor) => anchor.kind === "wake")
+        .map((anchor) => {
+          const metadata = anchorMetadata.get(anchor.id);
+          const zoned =
+            metadata?.zoned ??
+            Temporal.Instant.from(anchor.instant).toZonedDateTimeISO(
+              displayZoneId
+            );
+          const timeLabel = zoned
+            .toPlainTime()
+            .toString({ smallestUnit: "minute", fractionalSecondDigits: 0 });
+          const noteSource = metadata?.note ?? anchor.note;
+          const trimmedNote = noteSource?.trim() ?? "";
+          const title = trimmedNote.length > 0 ? trimmedNote : "Wake time";
+          const summary =
+            trimmedNote.length > 0 ? `${timeLabel} · ${trimmedNote}` : timeLabel;
+          return {
+            id: `wake-${anchor.id}`,
+            title,
+            start: zoned,
+            summary,
+            zone: metadata?.zone ?? zoned.timeZoneId,
+            kind: "wake",
+            anchorId: anchor.id,
+            editable: anchor.editable,
+            note: trimmedNote.length > 0 ? trimmedNote : undefined,
+            displayTime: timeLabel,
+          } satisfies MiniEvent;
+        });*/
       const combined = [...events, ...wakeEvents];
       combined.sort((a, b) => Temporal.ZonedDateTime.compare(a.start, b.start));
 
       const day: TimelineDay = {
         wakeInstant: entry.wakeEvent.startInstant,
-        wakeZoned: wakeZoned,
+        wakeZoned: wakeEvent.startZoned,
         wakeDisplayDate: wakeDate,
         changeThisDayHours: entry.shiftFromPreviousWakeHours,
-        sleepStartLocal: sleepZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-        sleepStartZoned: sleepZoned,
-        wakeTimeLocal: wakeZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
-        brightStartZoned: brightStartZoned,
-        brightEndZoned: brightEndZoned,
+        sleepStartLocal: sleepEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        sleepStartZoned: sleepEvent.startZoned,
+        wakeTimeLocal: wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        brightEndZoned: brightEvent.endZoned,
         anchors: anchor ? [{
           id: anchor.id,
           kind: "wake" as const,
@@ -536,7 +542,7 @@ export function MiniCalendarView({
         wakeMinutes: toMinutes(wakeZoned)
       };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
-  }, [anchorMetadata, computed.wakeSchedule, displayZoneId, eventsByDay]);
+  }, [anchorMetadata, computed.wakeSchedule, computed.displayDays, displayZoneId, eventsByDay]);
 
   const hourMarkers = useMemo(() => {
     const markers: number[] = [];
