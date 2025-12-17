@@ -112,9 +112,7 @@ const DAY_COLUMN_WIDTH_PX = 50;
 const DAY_GAP_PX = 16;
 const MIDNIGHT = Temporal.PlainTime.from("00:00");
 
-const getMinutesFromZdt = (value: Temporal.ZonedDateTime) => {
-  return minutesSinceStartOfDay(value);
-};
+
 
 const carveRange = (
   segments: TimeSegment[],
@@ -758,7 +756,7 @@ export function MiniCalendarView({
 
         const isNearExisting = meta.events.some((current) => {
           const startMinutes = clampMinutesValue(
-            getMinutesFromZdt(current.start)
+            minutesSinceStartOfDay(current.start)
           );
           const threshold =
             current.kind === "wake"
@@ -847,7 +845,7 @@ export function MiniCalendarView({
         const minutes = clampMinutesValue(Math.round(ratio * MINUTES_IN_DAY));
         const isNearExisting = meta.events.some((current) => {
           const startMinutes = clampMinutesValue(
-            getMinutesFromZdt(current.start)
+            minutesSinceStartOfDay(current.start)
           );
           const threshold =
             current.kind === "wake"
