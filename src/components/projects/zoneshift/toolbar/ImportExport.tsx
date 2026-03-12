@@ -49,25 +49,21 @@ export function ImportExport({
 
   const triggerFileDialog = () => fileInputRef.current?.click();
 
-  const handleExport = async () => {
+  const handleExport = () => {
     const json = exportPlan();
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(json);
-        setStatus("Plan copied to clipboard");
-        return;
-      }
-    } catch (error) {
-      console.error("Clipboard export failed", error);
-    }
+    const timestamp = new Date()
+      .toISOString()
+      .replaceAll(":", "-")
+      .replaceAll(".", "-");
+    const filename = `zoneshift-plan-${timestamp}.json`;
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "zoneshift-plan.json";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
-    setStatus("Download started");
+    setStatus(`Downloading ${filename}`);
   };
 
   const handleShare = () => {

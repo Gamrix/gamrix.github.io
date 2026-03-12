@@ -141,14 +141,43 @@ describe("PlanEditor", () => {
     expect(valueNode?.textContent).toContain("@ 17:00");
   });
 
-  it("exports plan JSON to the clipboard", async () => {
+  it("exports plan JSON as a downloaded file", async () => {
     const user = userEvent.setup();
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    const originalClipboard = navigator.clipboard;
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
+    const objectUrl = "blob:download-url";
+    const anyURL = URL as typeof URL & {
+      createObjectURL?: (blob: Blob) => string;
+      revokeObjectURL?: (url: string) => void;
+    };
+    const originalCreate = anyURL.createObjectURL;
+    const originalRevoke = anyURL.revokeObjectURL;
+    if (typeof anyURL.createObjectURL !== "function") {
+      anyURL.createObjectURL = () => "";
+    }
+    if (typeof anyURL.revokeObjectURL !== "function") {
+      anyURL.revokeObjectURL = () => {};
+    }
+    const createObjectUrlSpy = vi
+      .spyOn(anyURL, "createObjectURL")
+      .mockReturnValue(objectUrl);
+    const revokeObjectUrlSpy = vi
+      .spyOn(anyURL, "revokeObjectURL")
+      .mockImplementation(() => {});
+
+    const realCreateElement = document.createElement.bind(document);
+    const clickSpy = vi.fn();
+    const anchorMock = {
+      href: "",
+      download: "",
+      click: clickSpy,
+    } as unknown as HTMLAnchorElement;
+    const createElementSpy = vi
+      .spyOn(document, "createElement")
+      .mockImplementation((tagName: string) => {
+        if (tagName.toLowerCase() === "a") {
+          return anchorMock;
+        }
+        return realCreateElement(tagName);
+      });
 
     render(<PlanEditor />);
 
@@ -157,11 +186,24 @@ describe("PlanEditor", () => {
     });
     await user.click(exportButtons[0]);
 
-    expect(writeText).toHaveBeenCalled();
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(anchorMock.download).toMatch(/zoneshift-plan-.*\.json$/);
+    expect(await screen.findByText(/Downloading/i)).toBeInTheDocument();
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith(objectUrl);
 
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: originalClipboard,
-    });
+    createElementSpy.mockRestore();
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
+    if (originalCreate === undefined) {
+      delete anyURL.createObjectURL;
+    } else {
+      anyURL.createObjectURL = originalCreate;
+    }
+    if (originalRevoke === undefined) {
+      delete anyURL.revokeObjectURL;
+    } else {
+      anyURL.revokeObjectURL = originalRevoke;
+    }
   });
 });

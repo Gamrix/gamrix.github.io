@@ -269,9 +269,7 @@ export function MiniCalendarView({
   const [containerWidth, setContainerWidth] = useState(0);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [composer, setComposer] = useState<
-    | null
-    | { type: "event"; dayKey: string }
-    | { type: "wake"; dayKey: string }
+    { dayKey: string; mode: "event" | "wake"; minutes: number | null } | null
   >(null);
   const [eventDraft, setEventDraft] = useState({
     title: "",
@@ -286,6 +284,56 @@ export function MiniCalendarView({
   const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const suppressClickRef = useRef(false);
   const [hoverTarget, setHoverTarget] = useState<HoverTarget | null>(null);
+  const [eventDraftTouched, setEventDraftTouched] = useState(false);
+  const [wakeDraftTouched, setWakeDraftTouched] = useState(false);
+  const allowEvent = Boolean(onAddEvent);
+  const allowWake = Boolean(onAddAnchor);
+
+  const initializeEventDraft = useCallback(
+    (day: TimelineDay, minutes: number | null) => {
+      const brightStart = day.brightStartZoned
+        ? day.brightStartZoned.withTimeZone(displayZoneId)
+        : day.sleepStartZoned.withTimeZone(displayZoneId);
+      const baseStart = minutes ?? minutesSinceStartOfDay(brightStart);
+      const startMinutes = clampMinutesValue(baseStart);
+      const brightEnd = day.brightEndZoned
+        ? day.brightEndZoned.withTimeZone(displayZoneId)
+        : null;
+      let endMinutes = minutes !== null
+        ? clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES)
+        : brightEnd
+          ? clampMinutesValue(
+              Math.max(
+                minutesSinceStartOfDay(brightEnd),
+                startMinutes + HOVER_EVENT_THRESHOLD_MINUTES
+              )
+            )
+          : clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES);
+      if (endMinutes <= startMinutes) {
+        endMinutes = clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES);
+      }
+      setEventDraft({
+        title: "",
+        start: minutesToTimeString(startMinutes),
+        end: minutesToTimeString(endMinutes),
+      });
+      setEventDraftTouched(false);
+    },
+    [displayZoneId]
+  );
+
+  const initializeWakeDraft = useCallback(
+    (day: TimelineDay, minutes: number | null) => {
+      const base = minutes ?? timeStringToMinutes(day.wakeTimeLocal);
+      const normalized = clampMinutesValue(base);
+      setWakeDraft({
+        time: minutesToTimeString(normalized),
+        note: "",
+      });
+      setWakeDraftTouched(false);
+    },
+    []
+  );
 
   const setScrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     setScrollContainer(node);
@@ -305,13 +353,10 @@ export function MiniCalendarView({
   const closeComposer = useCallback(() => {
     setComposer(null);
     setComposerError(null);
+    setHoverTarget(null);
+    setEventDraftTouched(false);
+    setWakeDraftTouched(false);
   }, []);
-
-  useEffect(() => {
-    if (composer) {
-      setHoverTarget(null);
-    }
-  }, [composer]);
 
   useEffect(() => {
     if (composer) {
@@ -321,54 +366,43 @@ export function MiniCalendarView({
 
   const openEventComposer = useCallback(
     (day: TimelineDay, minuteOverride?: number) => {
+      if (!allowEvent) {
+        return;
+      }
       const dayKey = day.wakeDisplayDate.toString();
-      const brightStartDisplay = day.brightStartZoned
-        ? day.brightStartZoned.withTimeZone(displayZoneId)
-        : day.sleepStartZoned.withTimeZone(displayZoneId);
-      const brightEndDisplay = day.brightEndZoned
-        ? day.brightEndZoned.withTimeZone(displayZoneId)
-        : null;
-
-      const startMinutes =
-        minuteOverride !== undefined
-          ? clampMinutesValue(minuteOverride)
-          : minutesSinceStartOfDay(brightStartDisplay);
-      const endMinutes =
-        minuteOverride !== undefined
-          ? clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES)
-          : brightEndDisplay
-            ? minutesSinceStartOfDay(brightEndDisplay)
-            : clampMinutesValue(startMinutes + EVENT_HOVER_DURATION_MINUTES);
-      setEventDraft({
-        title: "",
-        start: minutesToTimeString(startMinutes),
-        end: minutesToTimeString(endMinutes),
-      });
-      setComposer({ type: "event", dayKey });
+      const minutes = minuteOverride ?? null;
+      initializeEventDraft(day, minutes);
+      initializeWakeDraft(day, minutes);
+      setComposer({ dayKey, mode: "event", minutes });
       setComposerError(null);
+      setHoverTarget(null);
     },
-    [displayZoneId]
+    [allowEvent, initializeEventDraft, initializeWakeDraft]
   );
 
   const openWakeComposer = useCallback(
-    (day: TimelineDay, minuteOverride?: number) => {
+    (
+      day: TimelineDay,
+      options?: { minuteOverride?: number }
+    ) => {
+      if (!allowWake) {
+        return;
+      }
       const dayKey = day.wakeDisplayDate.toString();
-      setWakeDraft({
-        time: minutesToTimeString(
-          minuteOverride ?? timeStringToMinutes(day.wakeTimeLocal)
-        ),
-        note: "",
-      });
-      setComposer({ type: "wake", dayKey });
+      const minutes = options?.minuteOverride ?? null;
+      initializeEventDraft(day, minutes);
+      initializeWakeDraft(day, minutes);
+      setComposer({ dayKey, mode: "wake", minutes });
       setComposerError(null);
+      setHoverTarget(null);
     },
-    []
+    [allowWake, initializeEventDraft, initializeWakeDraft]
   );
 
   const handleEventComposerSubmit = useCallback(
     (formEvent: FormEvent<HTMLFormElement>) => {
       formEvent.preventDefault();
-      if (!composer || composer.type !== "event") {
+      if (!composer || composer.mode !== "event") {
         return;
       }
       if (!onAddEvent) {
@@ -425,7 +459,7 @@ export function MiniCalendarView({
   const handleWakeComposerSubmit = useCallback(
     (formEvent: FormEvent<HTMLFormElement>) => {
       formEvent.preventDefault();
-      if (!composer || composer.type !== "wake") {
+      if (!composer || composer.mode !== "wake") {
         return;
       }
       if (!onAddAnchor) {
@@ -533,7 +567,10 @@ export function MiniCalendarView({
   }, [plan?.anchors, displayZoneId]);
 
   const timelineByDay = useMemo(() => {
-    const toMinutes = (value: Temporal.ZonedDateTime) => {
+    const toMinutes = (value: Temporal.ZonedDateTime | null | undefined) => {
+      if (!value) {
+        return 0;
+      }
       return minutesSinceStartOfDay(value.withTimeZone(displayZoneId));
     };
 
@@ -592,8 +629,7 @@ export function MiniCalendarView({
         note: anchor.note,
         displayTime: wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
       }] : [];
-      /*const wakeEvents: MiniEvent[] = day.anchors
-        .filter((anchor) => anchor.kind === "wake")
+      /*const wakeEvents: MiniEvent[] = wakeAnchorsRaw
         .map((anchor) => {
           const metadata = anchorMetadata.get(anchor.id);
           const zoned =
@@ -625,7 +661,7 @@ export function MiniCalendarView({
       const combined = [...events, ...wakeEvents];
       combined.sort((a, b) => Temporal.ZonedDateTime.compare(a.start, b.start));
 
-      const day = {
+      const day: TimelineDay = {
         wakeInstant: entry.wakeEvent.startInstant,
         wakeZoned: wakeEvent.startZoned,
         wakeDisplayDate: wakeDate,
@@ -633,6 +669,7 @@ export function MiniCalendarView({
         sleepStartLocal: sleepEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
         sleepStartZoned: sleepEvent.startZoned,
         wakeTimeLocal: wakeEvent.startZoned.toPlainTime().toString({ smallestUnit: "minute", fractionalSecondDigits: 0 }),
+        brightStartZoned: wakeEvent.startZoned,
         brightEndZoned: brightEvent.endZoned,
         anchors: anchor ? [{
           id: anchor.id,
@@ -643,9 +680,58 @@ export function MiniCalendarView({
         }] : [],
       };
 
-      return { day, segments, events: combined };
+      return {
+        day,
+        segments,
+        events: combined,
+        hasWakeAnchor: Boolean(anchor),
+        wakeMinutes: toMinutes(wakeEvent.startZoned),
+      };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
   }, [anchorMetadata, computed.wakeSchedule, computed.displayDays, displayZoneId, eventsByDay]);
+
+  const switchComposerMode = useCallback(
+    (mode: "event" | "wake") => {
+      setComposer((prev) => {
+        if (!prev || prev.mode === mode) {
+          return prev;
+        }
+        if ((mode === "event" && !allowEvent) || (mode === "wake" && !allowWake)) {
+          return prev;
+        }
+        const entry = timelineByDay.find(
+          (item) => item.day.wakeDisplayDate.toString() === prev.dayKey
+        );
+        const nextMinutes =
+          mode === "event"
+            ? eventDraftTouched
+              ? timeStringToMinutes(eventDraft.start)
+              : prev.minutes
+            : wakeDraftTouched
+              ? timeStringToMinutes(wakeDraft.time)
+              : prev.minutes;
+        if (entry) {
+          if (mode === "event" && !eventDraftTouched) {
+            initializeEventDraft(entry.day, nextMinutes);
+          } else if (mode === "wake" && !wakeDraftTouched) {
+            initializeWakeDraft(entry.day, nextMinutes);
+          }
+        }
+        return { ...prev, mode, minutes: nextMinutes };
+      });
+    },
+    [
+      allowEvent,
+      allowWake,
+      timelineByDay,
+      eventDraft.start,
+      eventDraftTouched,
+      initializeEventDraft,
+      initializeWakeDraft,
+      wakeDraft.time,
+      wakeDraftTouched,
+    ]
+  );
 
   const hourMarkers = useMemo(() => {
     const markers: number[] = [];
@@ -910,7 +996,7 @@ export function MiniCalendarView({
 
         setHoverTarget(null);
       },
-    [composer, dragState, onAddAnchor, onAddEvent]
+    [allowEvent, allowWake, composer, dragState]
   );
 
   const handleColumnPointerLeave = useCallback(() => {
@@ -924,13 +1010,15 @@ export function MiniCalendarView({
       minutes: number
     ) => {
       if (kind === "wake") {
-        openWakeComposer(day, minutes);
-      } else {
+        openWakeComposer(day, { minuteOverride: minutes });
+      } else if (allowEvent) {
         openEventComposer(day, minutes);
+      } else if (allowWake) {
+        openWakeComposer(day, { minuteOverride: minutes });
       }
       setHoverTarget(null);
     },
-    [openEventComposer, openWakeComposer]
+    [allowEvent, allowWake, openEventComposer, openWakeComposer]
   );
 
   // Fix 2 & 3: Touch Scrolling & Ghost Touches
@@ -984,11 +1072,13 @@ export function MiniCalendarView({
           return;
         }
 
-        if (onAddEvent && !isNearExisting) {
+        if (allowEvent && !isNearExisting) {
           handleHoverCreate("event", meta.day, minutes);
+        } else if (allowWake) {
+          handleHoverCreate("wake", meta.day, minutes);
         }
       },
-    [composer, dragState, handleHoverCreate, onAddAnchor, onAddEvent]
+    [allowEvent, allowWake, composer, dragState, handleHoverCreate]
   );
 
   useEffect(() => {
@@ -1448,16 +1538,54 @@ export function MiniCalendarView({
       </div>
       {composer ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
-          <div className="w-full max-w-sm space-y-3 rounded-xl border bg-card p-4 text-sm shadow-xl">
-            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              {composer.type === "event" ? "Add event" : "Add wake time"}
-            </div>
-            {composerLabel ? (
-              <div className="text-sm font-semibold text-foreground">
-                {composerLabel}
+          <div className="w-full max-w-sm space-y-4 rounded-xl border bg-card p-4 text-sm shadow-xl">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    Add timeline item
+                  </div>
+                  {composerLabel ? (
+                    <div className="text-sm font-semibold text-foreground">
+                      {composerLabel}
+                    </div>
+                  ) : null}
+                </div>
+                {allowEvent && allowWake ? (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={composer.mode === "event" ? "default" : "outline"}
+                      aria-pressed={composer.mode === "event"}
+                      onClick={() => switchComposerMode("event")}
+                      disabled={!allowEvent}
+                    >
+                      Event
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={composer.mode === "wake" ? "default" : "outline"}
+                      aria-pressed={composer.mode === "wake"}
+                      onClick={() => switchComposerMode("wake")}
+                      disabled={!allowWake}
+                    >
+                      Wake
+                    </Button>
+                  </div>
+                ) : !allowEvent && allowWake ? (
+                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                    Wake
+                  </span>
+                ) : allowEvent && !allowWake ? (
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                    Event
+                  </span>
+                ) : null}
               </div>
-            ) : null}
-            {composer.type === "event" ? (
+            </div>
+            {composer.mode === "event" ? (
               <form
                 className="space-y-3"
                 onSubmit={handleEventComposerSubmit}
@@ -1467,12 +1595,13 @@ export function MiniCalendarView({
                   <input
                     type="text"
                     value={eventDraft.title}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setEventDraftTouched(true);
                       setEventDraft((prev) => ({
                         ...prev,
                         title: event.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                     placeholder="Describe the event"
                     className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                   />
@@ -1484,12 +1613,13 @@ export function MiniCalendarView({
                       type="time"
                       required
                       value={eventDraft.start}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setEventDraftTouched(true);
                         setEventDraft((prev) => ({
                           ...prev,
                           start: event.target.value,
-                        }))
-                      }
+                        }));
+                      }}
                       className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />
                   </label>
@@ -1499,12 +1629,13 @@ export function MiniCalendarView({
                       type="time"
                       required
                       value={eventDraft.end}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setEventDraftTouched(true);
                         setEventDraft((prev) => ({
                           ...prev,
                           end: event.target.value,
-                        }))
-                      }
+                        }));
+                      }}
                       className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />
                   </label>
@@ -1535,12 +1666,13 @@ export function MiniCalendarView({
                       type="time"
                       required
                       value={wakeDraft.time}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setWakeDraftTouched(true);
                         setWakeDraft((prev) => ({
                           ...prev,
                           time: event.target.value,
-                        }))
-                      }
+                        }));
+                      }}
                       className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />
                   </label>
@@ -1549,12 +1681,13 @@ export function MiniCalendarView({
                     <input
                       type="text"
                       value={wakeDraft.note}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        setWakeDraftTouched(true);
                         setWakeDraft((prev) => ({
                           ...prev,
                           note: event.target.value,
-                        }))
-                      }
+                        }));
+                      }}
                       placeholder="Optional context"
                       className="rounded-md border px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     />

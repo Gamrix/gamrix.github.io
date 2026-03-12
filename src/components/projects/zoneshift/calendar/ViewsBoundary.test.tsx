@@ -125,7 +125,7 @@ describe("Zoneshift day-boundary handling", () => {
       clientY: 100,
     });
 
-    expect(await screen.findByText(/Add event/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Add timeline item/i)).toBeInTheDocument();
   });
 
   it("shows hover affordance and opens composer when clicking the hover control", async () => {
@@ -172,7 +172,7 @@ describe("Zoneshift day-boundary handling", () => {
     const hoverButton = await screen.findByLabelText(/Add event on/i);
     await user.click(hoverButton);
 
-    expect(await screen.findByText(/Add event/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Add timeline item/i)).toBeInTheDocument();
   });
 
   it("allows dragging events with touch pointers", async () => {
