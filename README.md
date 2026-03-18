@@ -1,5 +1,34 @@
 # Personal Repository of Projects and About Info
 
-# At some point, I do need to set up a website for myself, 
-# so here it is.
+This repo contains the site source for `gamrix.github.io`.
 
+## Windows Setup
+
+Open PowerShell in the repo root and run:
+
+```powershell
+nvm install lts
+nvm use lts
+npm install -g pnpm
+pnpm install
+```
+
+## Common Commands
+
+Start the local dev server:
+
+```powershell
+pnpm dev
+```
+
+Run the production build:
+
+```powershell
+pnpm build
+```
+
+Run tests:
+
+```powershell
+pnpm test
+```
